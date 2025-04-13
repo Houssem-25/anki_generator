@@ -2,6 +2,7 @@ import os
 import groq
 from typing import List, Dict, Tuple, Union
 from pathlib import Path
+from tqdm import tqdm
 from . import config
 
 # Initialize the Groq client with the API key from environment variable
@@ -35,7 +36,8 @@ def process_german_words(words: List[str]) -> List[Dict]:
         
     results = []
     
-    for word in words:
+    # Wrap the loop with tqdm for a progress bar
+    for word in tqdm(words, desc="Processing words with Groq"):
         try:
             # First check if the word might be a verb (ends with 'en' or 'n' typically)
             is_potential_verb = word.lower().endswith(('en', 'n', 'rn', 'ln')) and len(word) > 2

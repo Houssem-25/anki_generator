@@ -69,6 +69,21 @@ def main():
         print("This key is required for processing. Please set it and try again.")
         sys.exit(1) # Exit if key is missing
 
+    print("\n--- Reading Input Words ---")
+    original_words = []
+    try:
+        with open(args.input, 'r', encoding='utf-8') as infile:
+            original_words = [line.strip() for line in infile.readlines() if line.strip()]
+        if not original_words:
+            print(f"Error: Input file {args.input} is empty or contains only whitespace.")
+            sys.exit(1)
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {args.input}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading input file {args.input}: {e}")
+        sys.exit(1)
+
     print("\n--- Processing words with Groq API ---")
     # Removed nlp_utils.warmup_parser() - Unnecessary
 
@@ -103,7 +118,8 @@ def main():
         anki_generator.write_anki_deck(
             formatted_lines=formatted_lines,
             output_file_path=args.output,
-            generate_audio_flag=(not args.no_audio)
+            generate_audio_flag=(not args.no_audio),
+            original_words=original_words # Pass the original words
         )
     except Exception as e:
         print(f"\nError during Anki deck generation: {e}")

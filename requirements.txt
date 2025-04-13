@@ -2,4 +2,8 @@ deep-translator==1.11.4
 german-nouns==1.2.5
 gTTS==2.5.4
 tqdm==4.67.1
-groq==0.22.0 
+groq==0.22.0
+requests
+python-dotenv
+pytest
+pytest-mock 

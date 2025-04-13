@@ -1,6 +1,7 @@
 import os
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
+import re # Import regex module
 from . import config
 # from .groq_generator import process_words_file # No longer needed here
 from . import audio
@@ -9,7 +10,7 @@ from . import audio
 
 # Removed generate_anki_cards function - Redundant logic, main.py calls process_words_file directly
 
-def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate_audio_flag: bool = True):
+def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate_audio_flag: bool = True, original_words: List[str] = None):
     """
     Writes the final Anki deck (.txt format) from pre-processed, formatted lines.
 
@@ -21,6 +22,7 @@ def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate
                          by the Groq generator.
         output_file_path: Path to the output .txt file for Anki import.
         generate_audio_flag: Whether to generate audio for the cards.
+        original_words: The list of original German words corresponding to formatted_lines, used for audio generation.
     """
     # Ensure output_file_path is a Path object and directory exists
     output_file_path = Path(output_file_path)
@@ -29,7 +31,16 @@ def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate
 
     processed_lines_for_txt = []
 
-    for line in formatted_lines:
+    if original_words is None:
+        print("Warning: Original words list not provided to write_anki_deck. Audio generation might be inaccurate.")
+        # Fallback: try to generate from formatted lines (less reliable)
+        original_words = [None] * len(formatted_lines)
+
+    if len(formatted_lines) != len(original_words):
+        print(f"Error: Mismatch between formatted lines ({len(formatted_lines)}) and original words ({len(original_words)}). Cannot proceed.")
+        return # Or raise an error
+
+    for i, line in enumerate(formatted_lines):
         # Expected format: "English Part;German Part"
         parts = line.split(';', 1)  # Split into max 2 parts
         if len(parts) < 2:
@@ -39,27 +50,16 @@ def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate
         english_part = parts[0]
         german_part = parts[1]
 
-        # Get the core German word/phrase for audio generation
-        # Assume the main term is before the first <br> tag
-        german_term_for_audio = german_part.split('<br>')[0]
+        # Get the original word for audio generation
+        word_for_audio = original_words[i]
 
-        # Clean up potential HTML tags (articles) and plural/conjugation info for audio
-        clean_term = german_term_for_audio
-        for tag in ['<span style="color: rgb(10, 2, 255)">Der</span> ',
-                  '<span style="color: rgb(170, 0, 0)">Die</span> ',
-                  '<span style="color: rgb(0, 255, 51)">Das</span> ']:
-            clean_term = clean_term.replace(tag, '').strip()
-
-        # Remove plural or conjugation info in parentheses if present
-        if ' (' in clean_term:
-            clean_term = clean_term.split(' (')[0].strip()
-
-        # Generate audio if flag is enabled
+        # Generate audio if flag is enabled using the original word
         sound_tag = ""
-        if generate_audio_flag and clean_term:
-            sound_tag = audio.generate_audio(clean_term)
-        elif not clean_term:
-             print(f"Warning: Could not extract clean term for audio from: {german_term_for_audio}")
+        if generate_audio_flag and word_for_audio:
+            # Use the original word directly for audio
+            sound_tag = audio.generate_audio(word_for_audio)
+        elif generate_audio_flag and not word_for_audio:
+             print(f"Warning: Missing original word for line index {i}. Cannot generate audio.")
 
         # Create the final line for the .txt file
         final_line = f"{english_part};{sound_tag}{german_part}"

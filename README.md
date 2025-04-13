@@ -7,6 +7,7 @@ A Python script to automatically generate Anki flashcards for German words, incl
 *   Translates German words to English using Deep Translator (Google Translate API).
 *   Retrieves noun gender (using colored articles: Der, Die, Das) and plural forms using the `german-nouns` library.
 *   Attempts to find example German sentences and their English translations from provided data.
+*   **NEW**: Uses Groq API (LLM) to generate contextually relevant German example sentences and English translations.
 *   Generates German audio pronunciation using Google Text-to-Speech (gTTS).
 *   Formats output into a semicolon-separated text file (`.txt`) suitable for direct import into Anki.
 *   Automatically copies generated audio files to a specified Anki media directory (if configured).
@@ -27,6 +28,7 @@ anki_generator/
 │   ├── audio.py           # Audio generation and copying
 │   ├── config.py          # Configuration constants and paths
 │   ├── data_loader.py     # Loads data files
+│   ├── groq_generator.py  # NEW: Groq API integration for example generation
 │   ├── main.py            # Main script entry point (CLI)
 │   ├── nlp_utils.py       # German NLP functions (parsing, plurals)
 │   └── translation.py     # Translation functions
@@ -58,10 +60,22 @@ anki_generator/
     ```bash
     pip install -r requirements.txt
     ```
-    *Note: Please ensure you add the correct versions for `pattern.de`, `german_nouns`, `gTTS`, and `tqdm` in `requirements.txt` if the `pip freeze` command didn't capture them.* 
+    *Note: Please ensure you add the correct versions for `pattern.de`, `german_nouns`, `gTTS`, `groq`, and `tqdm` in `requirements.txt` if the `pip freeze` command didn't capture them.* 
 
-4.  **Prepare Input Data:**
+4.  **Set up Groq API (optional):**
+    *   Sign up for a Groq API key at [groq.com](https://groq.com)
+    *   Set your API key as an environment variable:
+        ```bash
+        export GROQ_API_KEY=your_api_key_here  # Linux/macOS
+        # OR
+        set GROQ_API_KEY=your_api_key_here     # Windows Command Prompt
+        # OR
+        $env:GROQ_API_KEY="your_api_key_here"  # Windows PowerShell
+        ```
+
+5.  **Prepare Input Data:**
     *   Place your input word list file (one German word or phrase per line) in the `data/` directory. The default file is `data/new_words.txt`.
+    *   For the Groq API feature, the input file should only contain one German word per line without additional formatting.
     *   Ensure the example sentence data files (`german_to_eng.pickle`, etc.) are present in the `data/` directory if you rely on the automatic example finding.
 
 ## Usage
@@ -85,6 +99,12 @@ python src/main.py [OPTIONS]
 *   `--anki-media-path PATH`:
     Specify the path to your Anki profile's `collection.media` folder. If provided, generated `.mp3` files will be copied here automatically (unless `--no-audio` is used).
     *Default: Attempts to find path using `APPDATA` (Windows) or requires manual setting.*
+*   `--use-groq`:
+    Use Groq API to generate example sentences and translations for each German word.
+*   `--groq-output PATH`:
+    Path to save the raw output from Groq API processing (optional).
+*   `--keep-groq-temp`:
+    Keep the temporary file created during Groq API processing (will not be deleted after processing).
 
 **Examples:**
 
@@ -96,15 +116,41 @@ python src/main.py [OPTIONS]
     ```bash
     python src/main.py --input data/my_word_list.txt --output anki_output/my_deck.txt
     ```
+*   **Use Groq API to generate examples and translations:**
+    ```bash
+    python src/main.py --use-groq
+    ```
+*   **Save the Groq API processed output and keep the temporary file:**
+    ```bash
+    python src/main.py --use-groq --groq-output data/groq_processed.txt --keep-groq-temp
+    ```
 *   **Generate without audio:**
     ```bash
     python src/main.py --no-audio
     ```
-*   **Generate and specify Anki media path on Linux/macOS:**
+*   **Generate with Groq API and specify Anki media path:**
     ```bash
-    python src/main.py --anki-media-path ~/.local/share/Anki2/YourProfileName/collection.media
+    python src/main.py --use-groq --anki-media-path ~/.local/share/Anki2/YourProfileName/collection.media
     ```
     *(Replace `YourProfileName` with your actual Anki profile name)*
+
+## Input Format for Groq API Feature
+
+When using the `--use-groq` option, your input file should contain one German word per line:
+
+```
+Aufbewahren
+Anglist
+Ehrendoktorwürde
+```
+
+The Groq API will generate example sentences and translations in the format:
+
+```
+Aufbewahren; Sie bewahrte die Dokumente in einer Box auf; She stored the documents in a box.
+Anglist; Der Anglist unterrichtete Literatur an der Universität; The English scholar taught literature at the university.
+Ehrendoktorwürde; Er erhielt die Ehrendoktorwürde für seine wissenschaftlichen Leistungen; He received an honorary doctorate for his academic achievements.
+```
 
 ## Anki Import
 
@@ -124,6 +170,7 @@ python src/main.py [OPTIONS]
 *   `german-nouns`: For noun gender and plural lookup.
 *   `gTTS`: For text-to-speech audio generation.
 *   `tqdm`: For progress bars.
+*   `groq`: For accessing the Groq API to generate example sentences and translations.
 
 See `requirements.txt` for specific versions.
 

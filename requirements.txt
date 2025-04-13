@@ -1,0 +1,5 @@
+deep_translator
+pattern.de
+german_nouns
+gTTS
+tqdm 

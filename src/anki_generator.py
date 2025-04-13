@@ -9,7 +9,6 @@ from . import audio
 class AnkiGenerator:
     """
     Class for generating Anki cards in a format that can be imported to Anki.
-    All NLP processing is handled by the Groq API via the groq_generator module.
     """
     
     def __init__(self, 
@@ -28,16 +27,15 @@ class AnkiGenerator:
     def generate_anki_cards(self, generate_audio_flag: bool = True) -> None:
         """
         Generate Anki cards from the input words file and save to CSV.
-        All linguistic processing is done by the Groq API.
         
         Args:
             generate_audio_flag: Whether to generate audio for the cards
         """
-        print("Processing words with Groq API...")
+        print("Processing words...")
         formatted_lines, processed_data = process_words_file(self.input_words_file)
         
         if not formatted_lines:
-            print("Error: No data was processed. Check the input file or Groq API access.")
+            print("Error: No data was processed. Check the input file or API access.")
             return
         
         # Parse the formatted lines into data for Anki
@@ -112,7 +110,7 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
     # Process the input file to get formatted lines
     formatted_lines, _ = process_words_file(input_file_path)
     if not formatted_lines:
-        print("Error: No data was processed. Check the input file or Groq API access.")
+        print("Error: No data was processed. Check the input file or API access.")
         return
     
     # Use write_anki_cards to handle both CSV and TXT output with sound tags

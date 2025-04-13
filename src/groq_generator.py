@@ -50,7 +50,7 @@ def process_german_words(words: List[str]) -> List[Dict]:
 1. A detailed English translation of the verb (1-2 phrases maximum explaining the meaning more precisely)
 2. An example German sentence using the verb
 3. An accurate English translation of that sentence
-4. Conjugation of the verb in 3rd person singular (er) for Präsens, Perfekt, and Präteritum only
+4. The 3rd person singular (er/sie/es) conjugation for Präsens, Perfekt (including auxiliary verb), and Präteritum, separated by commas. Example: er geht, er ist gegangen, er ging
 5. Whether the verb requires accusative, dative, or both cases
 6. The word type (verb) and any subtypes (regular, separable, reflexive, etc.)
 7. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
@@ -61,7 +61,7 @@ Word type: verb, [subtype if applicable]
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
 English translation: <translation>
-Conjugation: Präsens: er <form>, Perfekt: er <form>, Präteritum: er <form>
+Conjugation: <er form präsens>, <er form perfekt>, <er form präteritum>
 Case: <Akkusativ/Dativ/Both>
 Related words: <list of 3-5 related German words with English translations in parentheses>
 Additional info: <any relevant usage information or nuances>
@@ -305,8 +305,14 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             if " - Example:" in case_info:
                 case_info = case_info.split(" - Example:")[0].strip()
             
-            # Build German part with word and grammatical details
-            german_part = f"{word}<br>Conjugation: {conjugation}<br>Case: {case_info}"
+            # Build German part incrementally, adding sections only if they have content
+            german_part_components = [word]
+            if conjugation:
+                german_part_components.append(conjugation)
+            if case_info:
+                german_part_components.append(f"Case: {case_info}")
+                
+            german_part = "<br>".join(german_part_components)
             
             # Include example after grammatical info
             if example:

@@ -192,7 +192,7 @@ def test_format_for_anki_import_verb():
         "additional_info": "Can mean walk"
     }]
     expected_format = [
-        "to run, to walk<br>I run every day.;laufen<br>Conjugation: Präsens: er läuft, Perfekt: er ist gelaufen, Präteritum: er lief<br>Case: Akkusativ<br>Ich laufe jeden Tag.<br>Related: Rennen, Spaziergang<br>Info: Can mean walk"
+        "to run, to walk<br>I run every day.;laufen<br>Präsens: er läuft, Perfekt: er ist gelaufen, Präteritum: er lief<br>Case: Akkusativ<br>Ich laufe jeden Tag.<br>Related: Rennen, Spaziergang<br>Info: Can mean walk"
     ]
     assert groq_generator.format_for_anki_import(processed_words) == expected_format
 
@@ -238,7 +238,7 @@ def test_format_for_anki_import_multiple_words():
     ]
     expected_format = [
         "house<br>The house;<span style=\"color: rgb(0, 255, 51)\">Das</span> Haus (Häuser)<br>Das Haus",
-        "to run<br>I run;laufen<br>Conjugation: er läuft<br>Case: <br>Ich laufe"
+        "to run<br>I run;laufen<br>er läuft<br>Ich laufe"
     ]
     assert groq_generator.format_for_anki_import(processed_words) == expected_format
 

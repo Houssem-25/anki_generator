@@ -75,12 +75,22 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
                     audio_tag = audio.generate_audio(german_word_original)
                 # else: audio_tag remains ""
 
-                # 2. Translate
-                english_translation = translation.translate_to_english(german_word_original)
-                if not english_translation:
-                    print(f"Warning: Skipping '{german_word_original}' (line {line_num}) due to translation error.")
-                    skipped_count += 1
-                    continue
+                # 2. Get translations and sentences
+                # Since we've made Groq the default, we assume input has 3 parts: word, sentence, translation
+                if len(parts) >= 3:
+                    de_sentence = parts[1].strip()
+                    eng_translation = parts[2].strip()
+                else:
+                    # Fallback to traditional method for non-Groq inputs
+                    eng_translation = translation.translate_to_english(german_word_original)
+                    if not eng_translation:
+                        print(f"Warning: Skipping '{german_word_original}' (line {line_num}) due to translation error.")
+                        skipped_count += 1
+                        continue
+                    
+                    # Use traditional example finding
+                    temp_de_sentence, _ = get_german_example(german_word_cleaned)
+                    de_sentence = temp_de_sentence.replace("<br>  ", "").strip()
 
                 # 3. NLP Processing
                 german_word_cleaned = _clean_german_word(german_word_original)
@@ -110,15 +120,7 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
                                     manual_article = config.GENDER_TO_ARTICLE_HTML.get("n", "")
                                 break
 
-                # 4. Handle Examples
-                de_sentence, eng_sentence = "", ""
-                if len(parts) > 2 and parts[1] and parts[2]:
-                    de_sentence = f"<br>  {parts[1]}"
-                    eng_sentence = f"<br>  {parts[2]}"
-                else:
-                    de_sentence, eng_sentence = get_german_example(german_word_cleaned)
-
-                # 5. Get Plural/Display Form
+                # 4. Get Plural/Display Form
                 plural = ""
                 german_word_display = german_word_original
                 
@@ -128,7 +130,11 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
                 # If word is a noun, get plural and article information
                 if word_type == "noun":
                     # First try the NLP tools
-                    temp_display, plural = nlp_utils.get_plural(german_word_cleaned)
+                    temp_display, temp_plural = nlp_utils.get_plural(german_word_cleaned)
+                    
+                    # Clean up the plural form to remove HTML line breaks
+                    if temp_plural:
+                        plural = temp_plural.replace("<br>", "").strip()
                     
                     # If the NLP tools didn't add an article, check if we can add one manually
                     if not any(marker in temp_display for marker in ["Der</span>", "Die</span>", "Das</span>"]):
@@ -154,20 +160,29 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
                     if not plural and manual_article and 'Der</span>' in manual_article:
                         # For masculine nouns, a common plural pattern is to add "e" or "en"
                         base_word = german_word_original.replace("Der ", "").replace("der ", "")
-                        plural = f"<br> {config.GENDER_TO_ARTICLE_HTML.get('pl', '')}{base_word}e"
+                        plural = f"{config.GENDER_TO_ARTICLE_HTML.get('pl', '')}{base_word}e"
                         print(f"Added generic plural for '{german_word_original}': {plural}")
                 
-                # 6. Format Output Fields
-                # Field 1: English translation + English example sentence (with space after translation)
-                field1 = f"{english_translation} {eng_sentence}"
+                # 5. Format Output Fields for Anki
                 
-                # Field 2: Format German with two spaces before the word, place audio after plural, add trailing semicolon
-                if word_type in ["verb", "adjective", "unknown"]:
-                    # Non-nouns: Word + audio + example
-                    field2 = f"  {german_word_display}  {audio_tag} {de_sentence};"
+                # Field 1: English Translation
+                field1 = eng_translation
+                
+                # Field 2: Format German with better spacing, including any plurals and audio
+                if word_type == "noun" and plural:
+                    # Noun with plural form
+                    plural_html = f" / {plural}"
+                    field2 = f"{german_word_display}{plural_html} {audio_tag}"
                 else:
-                    # Nouns: Word + plural + audio + example
-                    field2 = f"  {german_word_display} {plural} {audio_tag} {de_sentence};"
+                    # Simple word without plural
+                    field2 = f"{german_word_display} {audio_tag}"
+                
+                # Add example sentence if available
+                if de_sentence:
+                    field2 += f" <br><br><i>{de_sentence}</i>"
+                
+                # Add final semicolon
+                field2 += ";"
 
                 output_line = f"{field1};{field2}"
                 outfile.write(output_line + '\n')

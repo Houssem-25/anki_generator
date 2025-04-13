@@ -1,5 +1,6 @@
 import argparse
 import sys
+import os
 from pathlib import Path
 
 # Add the project root to the Python path to allow absolute imports from src
@@ -43,9 +44,9 @@ def main():
         help=f"Override Anki media collection path (default from config: {config.ANKI_MEDIA_DIR or 'Not Found'})"
     )
     parser.add_argument(
-        "--use-groq",
+        "--no-groq",
         action="store_true",
-        help="Use Groq API to generate example sentences and translations"
+        help="Skip using Groq API to generate example sentences and translations (disables default LLM behavior)"
     )
     parser.add_argument(
         "--groq-output",
@@ -74,9 +75,19 @@ def main():
     # 1. Warm up NLP components
     nlp_utils.warmup_parser()
 
-    # 2. Check if Groq API should be used
-    if args.use_groq:
-        print("\n--- Using Groq API to generate example sentences and translations ---")
+    # 2. Check if Groq API should be used (default is to use it unless --no-groq is specified)
+    use_groq = not args.no_groq
+    
+    # Check if Groq API key is available
+    has_groq_api_key = "GROQ_API_KEY" in os.environ and os.environ["GROQ_API_KEY"]
+    
+    if use_groq and not has_groq_api_key:
+        print("\nWarning: Groq API key not found in environment. Set GROQ_API_KEY to use LLM features.")
+        print("Falling back to traditional processing without LLM.")
+        use_groq = False
+    
+    if use_groq:
+        print("\n--- Using Groq API to generate example sentences and translations (default behavior) ---")
         formatted_lines, _ = groq_generator.process_words_file(
             input_file_path=args.input,
             output_file_path=args.groq_output
@@ -93,6 +104,7 @@ def main():
         # Use the temporary file as input for Anki card generation
         input_file_for_anki = temp_input_file
     else:
+        print("\n--- Skipping Groq API processing (using traditional method) ---")
         input_file_for_anki = args.input
 
     # 3. Generate Anki cards
@@ -111,14 +123,13 @@ def main():
     )
 
     # Clean up temporary file if created
-    if args.use_groq and input_file_for_anki != args.input and not args.keep_groq_temp:
+    if use_groq and input_file_for_anki != args.input and not args.keep_groq_temp:
         try:
-            import os
             os.remove(input_file_for_anki)
             print(f"Cleaned up temporary file: {input_file_for_anki}")
         except Exception as e:
             print(f"Failed to clean up temporary file: {e}")
-    elif args.use_groq and args.keep_groq_temp:
+    elif use_groq and args.keep_groq_temp:
         print(f"Kept temporary Groq processed file: {input_file_for_anki}")
 
     print("\n--- Anki Card Generation Finished ---")

@@ -51,6 +51,8 @@ def process_german_words(words: List[str]) -> List[Dict]:
 4. Conjugation of the verb in 3rd person singular (er) for Präsens, Perfekt, and Präteritum only
 5. Whether the verb requires accusative, dative, or both cases
 6. The word type (verb) and any subtypes (regular, separable, reflexive, etc.)
+7. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
+8. Any additional relevant information about usage, nuances, or special considerations
 
 Format your response exactly like this:
 Word type: verb, [subtype if applicable]
@@ -59,6 +61,8 @@ German sentence: <sentence>
 English translation: <translation>
 Conjugation: Präsens: er <form>, Perfekt: er <form>, Präteritum: er <form>
 Case: <Akkusativ/Dativ/Both>
+Related words: <list of 3-5 related German words with English translations in parentheses>
+Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
             elif is_potential_noun:
@@ -69,6 +73,8 @@ Keep responses concise and grammatically correct."""
 4. The gender of the noun (masculine, feminine, neuter)
 5. The plural form of the noun
 6. The word type (noun)
+7. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "Buch (book), Buchhandlung (bookstore), Bücherei (library)"
+8. Any additional relevant information about usage, nuances, or special considerations
 
 Format your response exactly like this:
 Word type: noun
@@ -77,22 +83,19 @@ Plural form: <plural>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
 English translation: <translation>
+Related words: <list of 3-5 related German words with English translations in parentheses>
+Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
             else:
-                system_content = """You are a German language expert assistant. For the German word provided, generate:
-1. The word type (adjective, adverb, preposition, etc.)
-2. A detailed English translation of the word (1-2 phrases maximum explaining the meaning more precisely)
-3. An example German sentence using the word
-4. An accurate English translation of that sentence
-5. Any additional relevant grammatical information
+                system_content = """You are a German language expert AI that efficiently analyzes and provides key information about German words. For each given German word, analyze and return the following information in this exact format:
 
-Format your response exactly like this:
 Word type: <adjective/adverb/preposition/etc.>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
 English translation: <translation>
-Additional info: <any relevant grammar information>
+Related words: <list of 3-5 related German words, each with its English translation in parentheses, e.g., "Buchstabe (letter), Buchstabieren (to spell)">
+Additional info: <any relevant grammar information or usage nuances>
 
 Keep responses concise and grammatically correct."""
             
@@ -129,7 +132,8 @@ Keep responses concise and grammatically correct."""
                 "case_info": "",
                 "gender": "",
                 "plural": "",
-                "additional_info": ""
+                "additional_info": "",
+                "related_words": ""
             })
             
     return results
@@ -155,7 +159,8 @@ def process_groq_response(word: str, response_text: str) -> Dict:
         "case_info": "",
         "gender": "",
         "plural": "",
-        "additional_info": ""
+        "additional_info": "",
+        "related_words": ""
     }
     
     lines = response_text.strip().split('\n')
@@ -180,6 +185,8 @@ def process_groq_response(word: str, response_text: str) -> Dict:
             result["plural"] = line.replace("Plural form:", "").strip()
         elif line.startswith("Additional info:"):
             result["additional_info"] = line.replace("Additional info:", "").strip()
+        elif line.startswith("Related words:"):
+            result["related_words"] = line.replace("Related words:", "").strip()
     
     return result
 
@@ -211,7 +218,8 @@ def get_word_info(word: str) -> Dict[str, str]:
             "case_info": "",
             "gender": "",
             "plural": "",
-            "additional_info": ""
+            "additional_info": "",
+            "related_words": ""
         }
 
 def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
@@ -239,6 +247,8 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
         translation = item.get('word_translation', '')
         example = item.get('phrase', '')
         example_translation = item.get('translation', '')
+        related_words = item.get('related_words', '')
+        additional_info = item.get('additional_info', '')
         
         # GERMAN PART (second part after the semicolon)
         # ----------
@@ -275,6 +285,14 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             if example:
                 german_part = f"{german_part}<br>{example}"
             
+            # Add related words if available
+            if related_words:
+                german_part = f"{german_part}<br>Related: {related_words}"
+            
+            # Add additional info if available
+            if additional_info:
+                german_part = f"{german_part}<br>Info: {additional_info}"
+            
         # For verbs: include word, conjugation and case
         elif 'verb' in word_type:
             # Get conjugation and case if available
@@ -292,20 +310,30 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             if example:
                 german_part = f"{german_part}<br>{example}"
             
-        # For other word types: just include the word and any additional info
-        else:
-            additional = item.get('additional_info', '')
-            
-            # Build German part with word
-            german_part = f"{word}"
+            # Add related words if available
+            if related_words:
+                german_part = f"{german_part}<br>Related: {related_words}"
             
             # Add additional info if available
-            if additional:
-                german_part = f"{german_part}<br>Info: {additional}"
+            if additional_info:
+                german_part = f"{german_part}<br>Info: {additional_info}"
+            
+        # For other word types: just include the word and any additional info
+        else:
+            # Build German part with word
+            german_part = f"{word}"
             
             # Include example after additional info
             if example:
                 german_part = f"{german_part}<br>{example}"
+            
+            # Add related words if available
+            if related_words:
+                german_part = f"{german_part}<br>Related: {related_words}"
+            
+            # Add additional info if available
+            if additional_info:
+                german_part = f"{german_part}<br>Info: {additional_info}"
         
         # ENGLISH PART (first part before the semicolon)
         # -----------

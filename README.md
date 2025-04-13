@@ -1,69 +1,132 @@
 # Anki German Word Card Generator
 
-This script processes a list of German words (and optional example sentences) from a text file, translates them to English, finds noun genders and plurals, generates audio pronunciation, and formats the data into a text file suitable for importing into Anki.
+A Python script to automatically generate Anki flashcards for German words, including English translation, example sentences, noun genders/plurals, and audio pronunciation.
 
 ## Features
 
-- Translates German words to English using Google Translate.
-- Retrieves noun gender (Der/Die/Das) and plural forms using `german-nouns`.
-- Parses words to identify type (noun, verb, adjective) using `pattern.de`.
-- Generates German audio pronunciation using Google Text-to-Speech (gTTS).
-- Fetches example sentences from a pre-existing corpus (if not provided in the input file).
-- Copies generated audio files to the Anki media collection folder (requires configuration).
-- Outputs data in a semicolon-separated format for easy Anki import.
+*   Translates German words to English using Deep Translator (Google Translate API).
+*   Retrieves noun gender (using colored articles: Der, Die, Das) and plural forms using the `german-nouns` library.
+*   Attempts to find example German sentences and their English translations from provided data.
+*   Generates German audio pronunciation using Google Text-to-Speech (gTTS).
+*   Formats output into a semicolon-separated text file (`.txt`) suitable for direct import into Anki.
+*   Automatically copies generated audio files to a specified Anki media directory (if configured).
+*   Command-line interface for specifying input/output files and options.
+
+## Project Structure
+
+```
+anki_generator/
+├── data/                  # Input data files (ignored by Git)
+│   ├── german_to_eng.pickle
+│   ├── german_to_eng_ids.pickle
+│   ├── new_english_texts.pickle
+│   └── new_words.txt      # Default input word list
+├── src/                   # Source code
+│   ├── __init__.py
+│   ├── anki_generator.py  # Core card generation logic
+│   ├── audio.py           # Audio generation and copying
+│   ├── config.py          # Configuration constants and paths
+│   ├── data_loader.py     # Loads data files
+│   ├── main.py            # Main script entry point (CLI)
+│   ├── nlp_utils.py       # German NLP functions (parsing, plurals)
+│   └── translation.py     # Translation functions
+├── anki_output/           # Generated output (ignored by Git)
+│   ├── anki.txt           # Default output file
+│   └── audio/             # Generated audio files (.mp3)
+├── .gitattributes         # Git attributes (line endings)
+├── .gitignore             # Git ignore rules
+├── LICENSE                # Project License
+├── README.md              # This file
+└── requirements.txt       # Python dependencies
+```
 
 ## Setup
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/Houssem-25/anki_generator.git
+    git clone <repository-url>
     cd anki_generator
     ```
+
 2.  **Create a virtual environment (recommended):**
     ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    python -m venv .venv
+    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
     ```
+
 3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
-4.  **(Optional) Download `pattern.de` models:** The `pattern.de` library might require downloading language models the first time it's used. The script includes a warmup function, but you might need an internet connection when running it initially.
-5.  **(Optional) Prepare `german_to_eng.pickle`:** This script assumes a `german_to_eng.pickle` file exists, containing a list of German-English sentence pairs. You'll need to provide or generate this file.
-6.  **(Optional) Configure Anki Media Path:** The `copy_to_anki_media` function tries to copy audio files to the default Anki media path using `os.getenv('APPDATA')`. This might need adjustment depending on your operating system (Linux/macOS) and Anki profile name. Edit the `anki_media_dir` variable in `main.py` if necessary.
+    *Note: Please ensure you add the correct versions for `pattern.de`, `german_nouns`, `gTTS`, and `tqdm` in `requirements.txt` if the `pip freeze` command didn't capture them.* 
+
+4.  **Prepare Input Data:**
+    *   Place your input word list file (one German word or phrase per line) in the `data/` directory. The default file is `data/new_words.txt`.
+    *   Ensure the example sentence data files (`german_to_eng.pickle`, etc.) are present in the `data/` directory if you rely on the automatic example finding.
 
 ## Usage
 
-1.  **Prepare your input file:** Create a text file (e.g., `new_words.txt`) with one German word per line.
-    *   Format: `GermanWord`
-    *   Alternatively, provide the word and example sentences: `GermanWord;German Sentence;English Translation`
-2.  **Run the script:**
+Run the script from the project's root directory:
+
+```bash
+python src/main.py [OPTIONS]
+```
+
+**Options:**
+
+*   `-i PATH`, `--input PATH`:
+    Path to the input file containing German words (one per line).
+    *Default: `data/new_words.txt`*
+*   `-o PATH`, `--output PATH`:
+    Path to save the generated Anki import file.
+    *Default: `anki_output/anki.txt`*
+*   `--no-audio`:
+    Disable audio generation and copying to the Anki media folder.
+*   `--anki-media-path PATH`:
+    Specify the path to your Anki profile's `collection.media` folder. If provided, generated `.mp3` files will be copied here automatically (unless `--no-audio` is used).
+    *Default: Attempts to find path using `APPDATA` (Windows) or requires manual setting.*
+
+**Examples:**
+
+*   **Generate cards using default settings:**
     ```bash
-    python main.py
+    python src/main.py
     ```
-    *   Make sure your input file is named `new_words.txt` or change the `file_path` variable in the `if __name__ == "__main__":` block.
-3.  **Import into Anki:**
-    *   The script will generate an `anki/anki.txt` file.
-    *   Open Anki, go to `File -> Import...`, and select `anki/anki.txt`.
-    *   Ensure the fields map correctly (Field 1 -> Front, Field 2 -> Back, separator -> Semicolon).
-    *   Make sure "Allow HTML in fields" is checked.
+*   **Specify input and output files:**
+    ```bash
+    python src/main.py --input data/my_word_list.txt --output anki_output/my_deck.txt
+    ```
+*   **Generate without audio:**
+    ```bash
+    python src/main.py --no-audio
+    ```
+*   **Generate and specify Anki media path on Linux/macOS:**
+    ```bash
+    python src/main.py --anki-media-path ~/.local/share/Anki2/YourProfileName/collection.media
+    ```
+    *(Replace `YourProfileName` with your actual Anki profile name)*
 
-## Files
+## Anki Import
 
--   `main.py`: The main Python script.
--   `new_words.txt`: Example input file (you should create your own).
--   `requirements.txt`: Project dependencies.
--   `german_to_eng.pickle`: (Required) Pickle file containing German-English sentence pairs.
--   `german_to_eng_ids.pickle`: (Required) Associated IDs for the sentence pairs.
--   `new_english_texts.pickle`: (Required) Pickle file with English texts.
--   `anki/`: Directory where output (`anki.txt`) and generated audio files (`.mp3`) are stored.
--   `.gitignore`: Specifies intentionally untracked files for Git.
--   `LICENSE`: Project license (MIT).
+1.  Open Anki.
+2.  Go to `File > Import...`.
+3.  Select the generated `.txt` file (e.g., `anki_output/anki.txt`).
+4.  Configure the import settings:
+    *   **Fields separated by:** Semicolon
+    *   **Allow HTML in fields:** Check this box.
+    *   Map the fields correctly (Field 1 -> Front, Field 2 -> Back, or as desired).
+5.  Click `Import`.
 
 ## Dependencies
 
--   `deep_translator`
--   `pattern.de`
--   `german_nouns`
--   `gTTS`
--   `tqdm` 
+*   `deep-translator`: For translation.
+*   `pattern.de`: For German NLP tasks (parsing, conjugation).
+*   `german-nouns`: For noun gender and plural lookup.
+*   `gTTS`: For text-to-speech audio generation.
+*   `tqdm`: For progress bars.
+
+See `requirements.txt` for specific versions.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

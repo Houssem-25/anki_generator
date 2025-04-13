@@ -1,5 +1,5 @@
-deep_translator
-pattern.de
-german_nouns
-gTTS
-tqdm 
+deep-translator==1.11.4
+pattern.de # FIXME: Add version
+german_nouns # FIXME: Add version
+gTTS # FIXME: Add version
+tqdm # FIXME: Add version 

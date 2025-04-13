@@ -1,1 +1,16 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force specific files to always use LF
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+LICENSE text eol=lf
+
+# Denote binary files (if any) to prevent normalization
+# *.png binary
+# *.jpg binary
+
 *.pickle filter=lfs diff=lfs merge=lfs -text

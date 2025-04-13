@@ -11,8 +11,12 @@ venv/
 # VS Code settings (Optional, keep if you use VS Code)
 .vscode/
 
-# Project-specific output
-anki/
+# --- Project Specific ---
+# Output directory for generated Anki cards and audio
+anki_output/
+
+# Large data files (use Git LFS if tracking is needed)
+data/
 
 # OS generated files
 .DS_Store
@@ -133,9 +137,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# User-specific files
-anki/*.mp3
-anki/*.txt
+# Remove previously tracked specific files if needed
+# anki/*.mp3
+# anki/*.txt
 
 # OS generated files
 .DS_Store

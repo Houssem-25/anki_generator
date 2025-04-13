@@ -14,6 +14,7 @@ INPUT_WORDS_FILE = DATA_DIR / "new_words.txt"
 
 # Output files
 ANKI_OUTPUT_FILE = OUTPUT_DIR / "anki.txt"
+OUTPUT_CSV_FILE = OUTPUT_DIR / "anki_cards.csv"  # CSV output for Anki cards
 AUDIO_OUTPUT_DIR = OUTPUT_DIR / "audio" # Store generated audio within the output dir
 
 # Anki media directory (Consider making this configurable via environment variable or config file)

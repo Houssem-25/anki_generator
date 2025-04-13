@@ -72,57 +72,109 @@ def main():
     # --- Execution ---
     print("\n--- Starting Anki Card Generation ---")
 
-    # 1. Warm up NLP components
-    nlp_utils.warmup_parser()
-
-    # 2. Check if Groq API should be used (default is to use it unless --no-groq is specified)
+    # 1. Check if Groq API should be used (default is to use it unless --no-groq is specified)
     use_groq = not args.no_groq
     
-    # Check if Groq API key is available
+    # 2. Check if Groq API key is available when needed
     has_groq_api_key = "GROQ_API_KEY" in os.environ and os.environ["GROQ_API_KEY"]
     
-    if use_groq and not has_groq_api_key:
-        print("\nWarning: Groq API key not found in environment. Set GROQ_API_KEY to use LLM features.")
-        print("Falling back to traditional processing without LLM.")
-        use_groq = False
-    
     if use_groq:
-        print("\n--- Using Groq API to generate example sentences and translations (default behavior) ---")
-        formatted_lines, _ = groq_generator.process_words_file(
-            input_file_path=args.input,
-            output_file_path=args.groq_output
-        )
-        
-        # Create a temporary file with the formatted output from Groq
-        temp_input_file = args.input.parent / f"{args.input.stem}_groq_processed{args.input.suffix}"
-        with open(temp_input_file, 'w', encoding='utf-8') as f:
-            for line in formatted_lines:
-                f.write(line + '\n')
-                
-        print(f"Created temporary file with Groq API processed content: {temp_input_file}")
-        
-        # Use the temporary file as input for Anki card generation
-        input_file_for_anki = temp_input_file
+        if not has_groq_api_key:
+            print("\nWarning: Groq API key not found in environment. Set GROQ_API_KEY to use LLM features.")
+            print("Falling back to traditional processing without LLM.")
+            use_groq = False
+        else:
+            # Only warm up the parser if we're using Groq
+            nlp_utils.warmup_parser()
+            print("\n--- Using Groq API to generate example sentences and translations (default behavior) ---")
     else:
         print("\n--- Skipping Groq API processing (using traditional method) ---")
-        input_file_for_anki = args.input
+    
+    # 3. Process with Groq API if enabled
+    input_file_for_anki = args.input
+    if use_groq:
+        try:
+            formatted_lines, processed_data = groq_generator.process_words_file(
+                input_file_path=args.input,
+                output_file_path=args.groq_output
+            )
+            
+            # Create a temporary file with the formatted output from Groq
+            temp_input_file = args.input.parent / f"{args.input.stem}_groq_processed{args.input.suffix}"
+            with open(temp_input_file, 'w', encoding='utf-8') as f:
+                for line in formatted_lines:
+                    f.write(line + '\n')
+                    
+            print(f"Created temporary file with Groq API processed content: {temp_input_file}")
+            
+            # Use the temporary file as input for Anki card generation
+            input_file_for_anki = temp_input_file
+            
+            # Pass the formatted_lines directly to generate_anki_cards to avoid reprocessing
+            # Instead of using the temporary file as input and processing again
+            print(f"Input file: {input_file_for_anki}")
+            print(f"Output file: {args.output}")
+            if config.ANKI_MEDIA_DIR:
+                print(f"Anki media sync directory: {config.ANKI_MEDIA_DIR}")
+            else:
+                print("Anki media sync directory: Not configured or found.")
 
-    # 3. Generate Anki cards
-    print(f"Input file: {input_file_for_anki}")
-    print(f"Output file: {args.output}")
-    if config.ANKI_MEDIA_DIR:
-        print(f"Anki media sync directory: {config.ANKI_MEDIA_DIR}")
+            # Pass the 'generate_audio' flag based on '--no-audio' and use the pre-processed formatted_lines
+            try:
+                anki_generator.write_anki_cards(
+                    formatted_lines=formatted_lines,
+                    output_file_path=args.output,
+                    generate_audio_flag=(not args.no_audio)
+                )
+            except Exception as e:
+                print(f"Error during Anki card generation: {e}")
+                sys.exit(1)
+                
+        except Exception as e:
+            print(f"Error during Groq API processing: {e}")
+            print("Falling back to using the original input file.")
+            input_file_for_anki = args.input
+            
+            # Process normally with the original input file
+            print(f"Input file: {input_file_for_anki}")
+            print(f"Output file: {args.output}")
+            if config.ANKI_MEDIA_DIR:
+                print(f"Anki media sync directory: {config.ANKI_MEDIA_DIR}")
+            else:
+                print("Anki media sync directory: Not configured or found.")
+
+            # Pass the 'generate_audio' flag based on '--no-audio'
+            try:
+                anki_generator.generate_anki_cards(
+                    input_file_path=input_file_for_anki,
+                    output_file_path=args.output,
+                    generate_audio_flag=(not args.no_audio)
+                )
+            except Exception as e:
+                print(f"Error during Anki card generation: {e}")
+                sys.exit(1)
+                
     else:
-        print("Anki media sync directory: Not configured or found.")
+        # Not using Groq, process normally with the original input file
+        print(f"Input file: {input_file_for_anki}")
+        print(f"Output file: {args.output}")
+        if config.ANKI_MEDIA_DIR:
+            print(f"Anki media sync directory: {config.ANKI_MEDIA_DIR}")
+        else:
+            print("Anki media sync directory: Not configured or found.")
 
-    # Pass the 'generate_audio' flag based on '--no-audio'
-    anki_generator.generate_anki_cards(
-        input_file_path=input_file_for_anki,
-        output_file_path=args.output,
-        generate_audio_flag=(not args.no_audio) # Pass the flag
-    )
+        # Pass the 'generate_audio' flag based on '--no-audio'
+        try:
+            anki_generator.generate_anki_cards(
+                input_file_path=input_file_for_anki,
+                output_file_path=args.output,
+                generate_audio_flag=(not args.no_audio)
+            )
+        except Exception as e:
+            print(f"Error during Anki card generation: {e}")
+            sys.exit(1)
 
-    # Clean up temporary file if created
+    # 5. Clean up temporary file if created
     if use_groq and input_file_for_anki != args.input and not args.keep_groq_temp:
         try:
             os.remove(input_file_for_anki)

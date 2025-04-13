@@ -40,9 +40,18 @@ def get_german_word_type(german_word):
                 elif pos_tag.startswith("JJ"):
                     return "adjective" # Changed from adjectif
         # Check using german-nouns library if parsing doesn't identify it clearly
-        # or if it might be a noun not caught by pattern.de's POS tagger
-        if nouns and german_word in nouns and len(nouns[german_word]) > 0:
-             return "noun"
+        # The german_nouns library uses dictionary-like access but doesn't have .get()
+        try:
+            # Directly access the noun data using dictionary syntax
+            noun_entries = nouns[german_word]
+            # Check if we found entries
+            has_entries = len(noun_entries) > 0
+            print(f"Noun check for '{german_word}': Found in dictionary, Entries: {len(noun_entries)}")
+            if has_entries:
+                return "noun"
+        except KeyError:
+            # Word is not in the nouns dictionary
+            print(f"Noun check for '{german_word}': Not found in dictionary")
     except Exception as e:
         print(f"Error determining word type for '{german_word}': {e}")
     return "unknown"
@@ -51,35 +60,48 @@ def get_plural(german_word):
     """Gets the article and plural form for a German noun."""
     plural = ""
     article = ""
-    word_data_list = nouns.get(german_word, [])
-
-    if not word_data_list:
-        print(f"Warning: No data found for noun '{german_word}' in german-nouns library.")
-        # Return the word capitalized as a fallback, assuming it might be a proper noun or similar
+    
+    try:
+        # Try to get noun entries using dictionary-like access
+        word_data_list = nouns[german_word]
+        
+        if not word_data_list or len(word_data_list) == 0:
+            print(f"Warning: No data found for noun '{german_word}' in german-nouns library.")
+            # Return the word capitalized as a fallback
+            return german_word.capitalize(), ""
+            
+        # Use the first entry if multiple exist
+        word_data = word_data_list[0]  
+        flexion = word_data.get("flexion", {})
+        genus_keys = [k for k in word_data if k.startswith("genus")]
+        
+        # --- Get Article ---
+        if "genus" in word_data:
+            article = config.GENDER_TO_ARTICLE_HTML.get(word_data["genus"], "")
+        elif genus_keys:  # Handle cases like 'genus 1', 'genus 2'
+            articles = [config.GENDER_TO_ARTICLE_HTML.get(word_data[g], "") for g in sorted(genus_keys)]
+            article = " ".join(filter(None, articles))
+        
+        # Capitalize the original word
+        capitalized_word = german_word.capitalize()
+        
+        # --- Get Plural Form ---
+        plural_form = ""
+        if "nominativ plural" in flexion:
+            plural_form = flexion["nominativ plural"]
+        elif "nominativ plural 2" in flexion:
+            plural_form = flexion["nominativ plural 2"]
+        
+        # Format the plural with colored article if we have a plural form
+        if plural_form:
+            # Add two spaces after <br> for consistent formatting with expected output
+            plural = f"<br> {config.GENDER_TO_ARTICLE_HTML.get('pl', '')}{plural_form}"
+        
+        return article + capitalized_word, plural
+        
+    except KeyError:
+        print(f"Warning: '{german_word}' not found in german-nouns library.")
         return german_word.capitalize(), ""
-
-    # Use the first entry if multiple exist (heuristic)
-    word_data = word_data_list[0]
-    flexion = word_data.get("flexion", {})
-    genus_keys = [k for k in word_data if k.startswith("genus")]
-
-    # --- Get Plural --- 
-    if "nominativ plural" in flexion:
-        plural = flexion["nominativ plural"]
-    elif "nominativ plural 2" in flexion:
-        plural = flexion["nominativ plural 2"]
-
-    if plural:
-        plural = "<br> " + config.GENDER_TO_ARTICLE_HTML.get("pl", "Die ") + plural # Use .get for safety
-
-    # --- Get Article --- 
-    if "genus" in word_data:
-        article = config.GENDER_TO_ARTICLE_HTML.get(word_data["genus"], "")
-    elif genus_keys: # Handle cases like 'genus 1', 'genus 2'
-        articles = [config.GENDER_TO_ARTICLE_HTML.get(word_data[g], "") for g in sorted(genus_keys)]
-        article = " ".join(filter(None, articles)) # Join non-empty articles
-    # If no article found, maybe it's not a typical noun requiring Der/Die/Das
-    # Capitalize the original word regardless
-    capitalized_word = german_word.capitalize()
-
-    return article + capitalized_word, plural 
+    except Exception as e:
+        print(f"Error getting plural for '{german_word}': {e}")
+        return german_word.capitalize(), "" 

@@ -24,10 +24,10 @@ ANKI_MEDIA_DIR = Path(ANKI_MEDIA_DIR_ENV) / 'Anki2' / 'Houssem' / 'collection.me
 # HTML Color spans for noun genders
 GENDER_TO_ARTICLE_HTML = {
     "m": '<span style="color: rgb(10, 2, 255)">Der</span> ',
-    "f": '<span style="color: rgb(170, 0, 0)">Die</span> ', # Corrected color span tag
+    "f": '<span style="color: rgb(170, 0, 0)"> Die</span> ',  # Note: space before "Die"
     "n": '<span style="color: rgb(0, 255, 51)">Das</span> ',
-    "p": '<span style="color: rgb(170, 0, 0)">Die</span> ',
-    "pl": '<span style="color: rgb(170, 0, 0)">Die</span> '
+    "p": '<span style="color: rgb(170, 0, 0)"> Die</span> ',  # Note: space before "Die"
+    "pl": '<span style="color: rgb(170, 0, 0)"> Die</span> '  # Note: space before "Die"
 }
 
 # Translation settings

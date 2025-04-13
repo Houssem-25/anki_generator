@@ -20,7 +20,7 @@ def get_german_example(german_word):
     for de_sentence, eng_translation in GERMAN_TO_ENG_EXAMPLES:
         # Check length and if the specific word is present
         if len(de_sentence.split(" ")) < config.MAX_EXAMPLE_SENTENCE_LENGTH and german_word_spaced in f" {de_sentence.lower()} ":
-            return f"<br> {de_sentence}", f"<br> {eng_translation}"
+            return f"<br>  {de_sentence}", f"<br>  {eng_translation}"
     return "", ""
 
 def _clean_german_word(word):
@@ -85,24 +85,89 @@ def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE,
                 # 3. NLP Processing
                 german_word_cleaned = _clean_german_word(german_word_original)
                 word_type = nlp_utils.get_german_word_type(german_word_cleaned)
+                print(f"Word: {german_word_cleaned} - Type: {word_type}")
+                
+                # Manual article detection as fallback
+                original_has_article = any(german_word_original.lower().startswith(article.lower()) 
+                                          for article in ["der ", "die ", "das "])
+                first_char_uppercase = german_word_original[0].isupper() if german_word_original else False
+                
+                # If it's a capitalized word or has an article, it's likely a noun in German
+                if word_type == "unknown" and (original_has_article or first_char_uppercase):
+                    print(f"Fallback: Treating '{german_word_original}' as a noun based on capitalization/article")
+                    word_type = "noun"
+                    
+                    # Extract the article from the original word if present
+                    manual_article = ""
+                    if original_has_article:
+                        for article in ["Der ", "Die ", "Das "]:
+                            if german_word_original.startswith(article):
+                                if article == "Der ":
+                                    manual_article = config.GENDER_TO_ARTICLE_HTML.get("m", "")
+                                elif article == "Die ":
+                                    manual_article = config.GENDER_TO_ARTICLE_HTML.get("f", "")
+                                elif article == "Das ":
+                                    manual_article = config.GENDER_TO_ARTICLE_HTML.get("n", "")
+                                break
 
                 # 4. Handle Examples
                 de_sentence, eng_sentence = "", ""
                 if len(parts) > 2 and parts[1] and parts[2]:
-                    de_sentence = f"<br> {parts[1]}"
-                    eng_sentence = f"<br> {parts[2]}"
+                    de_sentence = f"<br>  {parts[1]}"
+                    eng_sentence = f"<br>  {parts[2]}"
                 else:
                     de_sentence, eng_sentence = get_german_example(german_word_cleaned)
 
                 # 5. Get Plural/Display Form
                 plural = ""
                 german_word_display = german_word_original
+                
+                # Store any manually detected article
+                manual_article = ""
+                
+                # If word is a noun, get plural and article information
                 if word_type == "noun":
-                    german_word_display, plural = nlp_utils.get_plural(german_word_cleaned)
-
+                    # First try the NLP tools
+                    temp_display, plural = nlp_utils.get_plural(german_word_cleaned)
+                    
+                    # If the NLP tools didn't add an article, check if we can add one manually
+                    if not any(marker in temp_display for marker in ["Der</span>", "Die</span>", "Das</span>"]):
+                        # Check for article in the original word
+                        if original_has_article:
+                            # Set manual article based on the original word
+                            for article_text, gender in [("Der ", "m"), ("Die ", "f"), ("Das ", "n")]:
+                                if german_word_original.startswith(article_text):
+                                    manual_article = config.GENDER_TO_ARTICLE_HTML.get(gender, "")
+                                    # Remove the article from original for cleaner display
+                                    clean_word = german_word_original[len(article_text):]
+                                    # Return with manual article and capitalized word
+                                    german_word_display = manual_article + clean_word
+                                    break
+                        else:
+                            # Just use the result from nlp_utils
+                            german_word_display = temp_display
+                    else:
+                        # NLP tools added an article, use that
+                        german_word_display = temp_display
+                    
+                    # If plural is still empty and we have a manual article, add a generic plural
+                    if not plural and manual_article and 'Der</span>' in manual_article:
+                        # For masculine nouns, a common plural pattern is to add "e" or "en"
+                        base_word = german_word_original.replace("Der ", "").replace("der ", "")
+                        plural = f"<br> {config.GENDER_TO_ARTICLE_HTML.get('pl', '')}{base_word}e"
+                        print(f"Added generic plural for '{german_word_original}': {plural}")
+                
                 # 6. Format Output Fields
-                field1 = f"{english_translation}{eng_sentence}"
-                field2 = f"{german_word_display}{plural}{(' ' + audio_tag) if audio_tag else ''}{de_sentence}"
+                # Field 1: English translation + English example sentence (with space after translation)
+                field1 = f"{english_translation} {eng_sentence}"
+                
+                # Field 2: Format German with two spaces before the word, place audio after plural, add trailing semicolon
+                if word_type in ["verb", "adjective", "unknown"]:
+                    # Non-nouns: Word + audio + example
+                    field2 = f"  {german_word_display}  {audio_tag} {de_sentence};"
+                else:
+                    # Nouns: Word + plural + audio + example
+                    field2 = f"  {german_word_display} {plural} {audio_tag} {de_sentence};"
 
                 output_line = f"{field1};{field2}"
                 outfile.write(output_line + '\n')

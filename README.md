@@ -1,41 +1,35 @@
 # Anki German Word Card Generator
 
-A Python script to automatically generate Anki flashcards for German words, including English translation, example sentences, noun genders/plurals, and audio pronunciation.
+A Python script to automatically generate Anki flashcards for German words using the Groq API.
+It generates English translations, example sentences, noun genders/plurals, conjugation info (for verbs), related words, and audio pronunciation.
 
 ## Features
 
-*   **Default LLM Integration**: Uses Groq API to generate contextually relevant German example sentences and English translations.
-*   Translates German words to English using Deep Translator (Google Translate API) as fallback.
-*   Retrieves noun gender (using colored articles: Der, Die, Das) and plural forms using the `german-nouns` library.
-*   Attempts to find example German sentences and their English translations from provided data.
-*   Generates German audio pronunciation using Google Text-to-Speech (gTTS).
-*   Formats output into a semicolon-separated text file (`.txt`) suitable for direct import into Anki.
-*   Automatically copies generated audio files to a specified Anki media directory (if configured).
-*   Command-line interface for specifying input/output files and options.
+*   **Groq API Integration**: Uses Groq (`llama3-8b-8192`) to generate comprehensive linguistic information for each German word (translation, examples, grammar, etc.).
+*   **Noun Processing**: Retrieves noun gender (using colored HTML: Der, Die, Das) and plural forms.
+*   **Verb Processing**: Retrieves conjugation (Präsens, Perfekt, Präteritum) and case information.
+*   **Audio Generation**: Generates German audio pronunciation using Google Text-to-Speech (`gTTS`).
+*   **Anki Format**: Formats output into a semicolon-separated text file (`.txt`) suitable for direct import into Anki, including `[sound:... ]` tags.
+*   **Media Sync**: Automatically copies generated audio files to a specified Anki `collection.media` directory (if configured via command-line argument).
+*   **CLI**: Simple command-line interface for specifying input/output files and options.
 
 ## Project Structure
 
 ```
 anki_generator/
-├── data/                  # Input data files (ignored by Git)
-│   ├── german_to_eng.pickle
-│   ├── german_to_eng_ids.pickle
-│   ├── new_english_texts.pickle
-│   └── new_words.txt      # Default input word list
+├── data/                  # Input data files
+│   └── new_words.txt      # Default input word list (one word per line)
 ├── src/                   # Source code
 │   ├── __init__.py
-│   ├── anki_generator.py  # Core card generation logic
-│   ├── audio.py           # Audio generation and copying
+│   ├── anki_generator.py  # Anki deck (.txt) writing logic
+│   ├── audio.py           # Audio generation (gTTS) and copying
 │   ├── config.py          # Configuration constants and paths
-│   ├── data_loader.py     # Loads data files
-│   ├── groq_generator.py  # Groq API integration for example generation
-│   ├── main.py            # Main script entry point (CLI)
-│   ├── nlp_utils.py       # German NLP functions (parsing, plurals)
-│   └── translation.py     # Translation functions
+│   ├── groq_generator.py  # Groq API interaction and data processing
+│   └── main.py            # Main script entry point (CLI)
 ├── anki_output/           # Generated output (ignored by Git)
-│   ├── anki.txt           # Default output file
+│   ├── anki.txt           # Default output deck file
 │   └── audio/             # Generated audio files (.mp3)
-├── .gitattributes         # Git attributes (line endings)
+├── .gitattributes         # Git attributes
 ├── .gitignore             # Git ignore rules
 ├── LICENSE                # Project License
 ├── README.md              # This file
@@ -50,40 +44,49 @@ anki_generator/
     cd anki_generator
     ```
 
-2.  **Create a virtual environment (recommended):**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
-    ```
+2.  **Create and activate a virtual environment (recommended):**
+    *   Using `venv`:
+        ```bash
+        python -m venv .venv
+        source .venv/bin/activate  # Linux/macOS
+        # .venv\Scripts\activate  # Windows
+        ```
+    *   Or using `conda`:
+        ```bash
+        conda create -n anki_gen python=3.10 # Or your desired version
+        conda activate anki_gen
+        ```
 
 3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
-    *Note: Please ensure you add the correct versions for `pattern.de`, `german_nouns`, `gTTS`, `groq`, and `tqdm` in `requirements.txt` if the `pip freeze` command didn't capture them.* 
 
-4.  **Set up Groq API (required for default LLM behavior):**
-    *   Sign up for a Groq API key at [groq.com](https://groq.com)
-    *   Set your API key as an environment variable:
+4.  **Set up Groq API Key:**
+    *   Sign up for a Groq API key at [groq.com](https://console.groq.com/keys)
+    *   Set your API key as an environment variable. The script **requires** this variable to run.
         ```bash
-        export GROQ_API_KEY=your_api_key_here  # Linux/macOS
-        # OR
-        set GROQ_API_KEY=your_api_key_here     # Windows Command Prompt
-        # OR
-        $env:GROQ_API_KEY="your_api_key_here"  # Windows PowerShell
+        export GROQ_API_KEY='your_api_key_here'  # Linux/macOS
+        # set GROQ_API_KEY=your_api_key_here     # Windows Command Prompt
+        # $env:GROQ_API_KEY="your_api_key_here"  # Windows PowerShell
         ```
-    *   If no API key is provided, the application will fall back to traditional processing without LLM.
 
-5.  **Prepare Input Data:**
-    *   Place your input word list file (one German word or phrase per line) in the `data/` directory. The default file is `data/new_words.txt`.
-    *   For the default LLM behavior, the input file should only contain one German word per line without additional formatting.
-    *   Ensure the example sentence data files (`german_to_eng.pickle`, etc.) are present in the `data/` directory if you rely on the non-LLM example finding.
+5.  **Prepare Input File:**
+    *   Create or edit a text file (e.g., `data/new_words.txt`) with one German word or phrase per line.
+        ```
+        Aufbewahren
+        Anglist
+        der Tisch
+        schön
+        ```
 
 ## Usage
 
 Run the script from the project's root directory:
 
 ```bash
+conda activate <your_env_name> # Or source .venv/bin/activate
+export GROQ_API_KEY='your_key' # Make sure key is set
 python src/main.py [OPTIONS]
 ```
 
@@ -93,65 +96,50 @@ python src/main.py [OPTIONS]
     Path to the input file containing German words (one per line).
     *Default: `data/new_words.txt`*
 *   `-o PATH`, `--output PATH`:
-    Path to save the generated Anki import file.
+    Path to save the generated Anki import file (`.txt`).
     *Default: `anki_output/anki.txt`*
 *   `--no-audio`:
     Disable audio generation and copying to the Anki media folder.
 *   `--anki-media-path PATH`:
-    Specify the path to your Anki profile's `collection.media` folder. If provided, generated `.mp3` files will be copied here automatically (unless `--no-audio` is used).
-    *Default: Attempts to find path using `APPDATA` (Windows) or requires manual setting.*
-*   `--no-groq`:
-    Skip using Groq API and use traditional methods for generating example sentences and translations.
-*   `--groq-output PATH`:
-    Path to save the raw output from Groq API processing (optional).
-*   `--keep-groq-temp`:
-    Keep the temporary file created during Groq API processing (will not be deleted after processing).
+    Specify the **full, absolute path** to your Anki profile's `collection.media` folder.
+    If provided and valid, generated `.mp3` files will be copied here automatically (unless `--no-audio` is used).
+    *Example (Linux):* `~/.local/share/Anki2/YourProfileName/collection.media`
+    *Example (Windows):* `C:\Users\YourUser\AppData\Roaming\Anki2\YourProfileName\collection.media`
+    *(Note: This path is often on a different drive or location than the project)*
 
 **Examples:**
 
-*   **Generate cards using default settings (with LLM):**
+*   **Generate cards using default input/output:**
     ```bash
     python src/main.py
     ```
-*   **Generate cards without using LLM:**
-    ```bash
-    python src/main.py --no-groq
-    ```
 *   **Specify input and output files:**
     ```bash
-    python src/main.py --input data/my_word_list.txt --output anki_output/my_deck.txt
-    ```
-*   **Save the Groq API processed output and keep the temporary file:**
-    ```bash
-    python src/main.py --groq-output data/groq_processed.txt --keep-groq-temp
+    python src/main.py --input data/my_words.txt --output anki_output/my_deck.txt
     ```
 *   **Generate without audio:**
     ```bash
     python src/main.py --no-audio
     ```
-*   **Generate with LLM and specify Anki media path:**
+*   **Generate and sync audio to Anki media folder:**
     ```bash
-    python src/main.py --anki-media-path ~/.local/share/Anki2/YourProfileName/collection.media
+    python src/main.py --anki-media-path /home/user/.local/share/Anki2/MyProfile/collection.media
     ```
-    *(Replace `YourProfileName` with your actual Anki profile name)*
 
-## Input Format
+## Output Format (`.txt` file)
 
-When using the default LLM-based processing, your input file should contain one German word per line:
+The output file (`anki_output/anki.txt` by default) is a semicolon-separated file ready for Anki import.
 
-```
-Aufbewahren
-Anglist
-Ehrendoktorwürde
-```
+*   **Field 1 (Front):** English translation(s) and example sentence translation.
+*   **Field 2 (Back):** `[sound:word.mp3]` tag (if audio enabled), German word/phrase with grammatical info (colored article, plural, conjugation, case), example sentence, related words, additional info.
 
-The Groq API will generate example sentences and translations in the format:
+**Example Line (for 'der Tisch'):**
 
 ```
-Aufbewahren; Sie bewahrte die Dokumente in einer Box auf; She stored the documents in a box.
-Anglist; Der Anglist unterrichtete Literatur an der Universität; The English scholar taught literature at the university.
-Ehrendoktorwürde; Er erhielt die Ehrendoktorwürde für seine wissenschaftlichen Leistungen; He received an honorary doctorate for his academic achievements.
+table; a piece of furniture with a flat top and one or more legs<br>The table is in the kitchen.;[sound:Tisch.mp3]<span style="color: rgb(10, 2, 255)">Der</span> Tisch (die Tische)<br>Der Tisch steht in der Küche.<br>Related: Stuhl (chair), Möbel (furniture), Esstisch (dining table)<br>Info: Masculine noun.
 ```
+
+*(Actual output formatting depends on Groq API results)*
 
 ## Anki Import
 
@@ -159,18 +147,19 @@ Ehrendoktorwürde; Er erhielt die Ehrendoktorwürde für seine wissenschaftliche
 2.  Go to `File > Import...`.
 3.  Select the generated `.txt` file (e.g., `anki_output/anki.txt`).
 4.  Configure the import settings:
+    *   Choose or create an appropriate Note Type (e.g., Basic).
     *   **Fields separated by:** Semicolon
     *   **Allow HTML in fields:** Check this box.
-    *   Map the fields correctly (Field 1 -> Front, Field 2 -> Back, or as desired).
+    *   Map **Field 1** to the Front template field.
+    *   Map **Field 2** to the Back template field.
 5.  Click `Import`.
 
 ## Dependencies
 
-*   `groq`: For accessing the Groq API to generate example sentences and translations (primary method).
-*   `deep-translator`: For translation (fallback method).
-*   `pattern.de`: For German NLP tasks (parsing, conjugation).
-*   `german-nouns`: For noun gender and plural lookup.
+*   `groq`: For accessing the Groq API.
 *   `gTTS`: For text-to-speech audio generation.
+*   `german-nouns`: For noun gender and plural lookup (used by Groq prompt generation).
+*   `deep-translator`: For fallback translation (currently unused in main flow).
 *   `tqdm`: For progress bars.
 
 See `requirements.txt` for specific versions.

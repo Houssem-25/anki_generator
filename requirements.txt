@@ -1,6 +1,5 @@
 deep-translator==1.11.4
-pattern.de # FIXME: Add version
-german_nouns # FIXME: Add version
-gTTS # FIXME: Add version
-tqdm # FIXME: Add version
-groq # Adding Groq API client 
+german-nouns==1.2.5
+gTTS==2.5.4
+tqdm==4.67.1
+groq==0.22.0 

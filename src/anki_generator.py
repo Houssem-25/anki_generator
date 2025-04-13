@@ -1,219 +1,80 @@
-import pandas as pd
 import os
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 from . import config
-from .groq_generator import process_words_file
+# from .groq_generator import process_words_file # No longer needed here
 from . import audio
 
-class AnkiGenerator:
-    """
-    Class for generating Anki cards in a format that can be imported to Anki.
-    """
-    
-    def __init__(self, 
-                 input_words_file: Union[str, Path] = config.INPUT_WORDS_FILE,
-                 output_csv_file: Union[str, Path] = config.OUTPUT_CSV_FILE):
-        """
-        Initialize the Anki Generator.
-        
-        Args:
-            input_words_file: Path to the input file containing German words
-            output_csv_file: Path to the output CSV file
-        """
-        self.input_words_file = Path(input_words_file)
-        self.output_csv_file = Path(output_csv_file)
-    
-    def generate_anki_cards(self, generate_audio_flag: bool = True) -> None:
-        """
-        Generate Anki cards from the input words file and save to CSV.
-        
-        Args:
-            generate_audio_flag: Whether to generate audio for the cards
-        """
-        print("Processing words...")
-        formatted_lines, processed_data = process_words_file(self.input_words_file)
-        
-        if not formatted_lines:
-            print("Error: No data was processed. Check the input file or API access.")
-            return
-        
-        # Parse the formatted lines into data for Anki
-        anki_data = []
-        for line in formatted_lines:
-            # Using the new format with ENGLISH; GERMAN
-            parts = line.split(';', 1)  # Split into max 2 parts
-            
-            if len(parts) < 2:
-                print(f"Warning: Line has fewer than expected elements: {line}")
-                continue
-            
-            english_part = parts[0]
-            german_part = parts[1]
-            
-            # Get the German word for audio generation
-            # For the audio, we want just the word itself, not examples or additional info
-            german_word = german_part.split('<br>')[0]
-            
-            # Clean up HTML tags and parentheses for audio generation
-            clean_word = german_word
-            for tag in ['<span style="color: rgb(10, 2, 255)">Der</span> ', 
-                      '<span style="color: rgb(170, 0, 0)">Die</span> ', 
-                      '<span style="color: rgb(0, 255, 51)">Das</span> ']:
-                clean_word = clean_word.replace(tag, '')
-            
-            # Remove plural or conjugation info in parentheses if present
-            if ' (' in clean_word:
-                clean_word = clean_word.split(' (')[0]
-            
-            # Generate audio if flag is enabled
-            sound_tag = ""
-            if generate_audio_flag:
-                sound_tag = audio.generate_audio(clean_word)
-            
-            # Create dictionary with the main parts
-            word_data = {
-                'English': english_part,  # English part with translation
-                'German': (sound_tag + german_part) if sound_tag else german_part  # Add sound tag to German part
-            }
-            
-            anki_data.append(word_data)
-        
-        # Create dataframe and save to CSV
-        if anki_data:
-            # Ensure the output directory exists
-            os.makedirs(self.output_csv_file.parent, exist_ok=True)
-            
-            df = pd.DataFrame(anki_data)
-            df.to_csv(self.output_csv_file, index=False, encoding='utf-8')
-            print(f"Generated Anki cards saved to {self.output_csv_file}")
-        else:
-            print("Error: No cards were generated.")
+# Removed AnkiGenerator Class - Unused and redundant
 
-# Function-based API for backward compatibility with main.py
-def generate_anki_cards(input_file_path=config.INPUT_WORDS_FILE, 
-                       output_file_path=config.ANKI_OUTPUT_FILE,
-                       generate_audio_flag=True) -> None:
-    """
-    Module-level function to generate Anki cards from an input file.
-    This provides backward compatibility with the main.py script.
-    
-    Args:
-        input_file_path: Path to the input file containing words to process
-        output_file_path: Path to the output file for Anki cards
-        generate_audio_flag: Whether to generate audio for the cards
-    """
-    # Ensure paths are Path objects
-    input_file_path = Path(input_file_path)
-    output_file_path = Path(output_file_path)
-    
-    # Process the input file to get formatted lines
-    formatted_lines, _ = process_words_file(input_file_path)
-    if not formatted_lines:
-        print("Error: No data was processed. Check the input file or API access.")
-        return
-    
-    # Use write_anki_cards to handle both CSV and TXT output with sound tags
-    write_anki_cards(
-        formatted_lines=formatted_lines,
-        output_file_path=output_file_path,
-        generate_audio_flag=generate_audio_flag
-    )
+# Removed generate_anki_cards function - Redundant logic, main.py calls process_words_file directly
 
-def write_anki_cards(formatted_lines, output_file_path, generate_audio_flag=True):
+def write_anki_deck(formatted_lines: List[str], output_file_path: Path, generate_audio_flag: bool = True):
     """
-    Write Anki cards directly from pre-processed formatted lines.
-    This avoids double-processing of the input data.
-    
+    Writes the final Anki deck (.txt format) from pre-processed, formatted lines.
+
+    Processes each line to extract the core German term, generates audio (if enabled),
+    prepends the audio tag, and writes the final lines to the output file.
+
     Args:
-        formatted_lines: Pre-processed lines in the correct format
-        output_file_path: Path to the output file
-        generate_audio_flag: Whether to generate audio for the cards
+        formatted_lines: List of strings, each pre-formatted as "English Part;German Part"
+                         by the Groq generator.
+        output_file_path: Path to the output .txt file for Anki import.
+        generate_audio_flag: Whether to generate audio for the cards.
     """
-    # Ensure output_file_path is a Path object
+    # Ensure output_file_path is a Path object and directory exists
     output_file_path = Path(output_file_path)
-    
-    # Create CSV output path from the text output path
     output_dir = output_file_path.parent
-    output_name = output_file_path.stem
-    output_csv = output_dir / f"{output_name}.csv"
-    
-    # Ensure directories exist
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Process the formatted lines and add audio if needed
-    processed_lines = []
-    anki_data = []
-    
+
+    processed_lines_for_txt = []
+
     for line in formatted_lines:
-        # Using the new format with ENGLISH; GERMAN
-        parts = line.split(';', 1)  # Split into 2 parts
-        
+        # Expected format: "English Part;German Part"
+        parts = line.split(';', 1)  # Split into max 2 parts
         if len(parts) < 2:
-            print(f"Warning: Line has fewer than expected elements: {line}")
+            print(f"Warning: Skipping line due to unexpected format: {line}")
             continue
-            
+
         english_part = parts[0]
         german_part = parts[1]
-        
-        # Get the German word for audio generation
-        # For the audio, we want just the word itself, not examples or additional info
-        german_word = german_part.split('<br>')[0]
-        
-        # Clean up HTML tags and parentheses for audio generation
-        clean_word = german_word
-        for tag in ['<span style="color: rgb(10, 2, 255)">Der</span> ', 
-                  '<span style="color: rgb(170, 0, 0)">Die</span> ', 
+
+        # Get the core German word/phrase for audio generation
+        # Assume the main term is before the first <br> tag
+        german_term_for_audio = german_part.split('<br>')[0]
+
+        # Clean up potential HTML tags (articles) and plural/conjugation info for audio
+        clean_term = german_term_for_audio
+        for tag in ['<span style="color: rgb(10, 2, 255)">Der</span> ',
+                  '<span style="color: rgb(170, 0, 0)">Die</span> ',
                   '<span style="color: rgb(0, 255, 51)">Das</span> ']:
-            clean_word = clean_word.replace(tag, '')
-        
+            clean_term = clean_term.replace(tag, '').strip()
+
         # Remove plural or conjugation info in parentheses if present
-        if ' (' in clean_word:
-            clean_word = clean_word.split(' (')[0]
-        
+        if ' (' in clean_term:
+            clean_term = clean_term.split(' (')[0].strip()
+
         # Generate audio if flag is enabled
         sound_tag = ""
-        if generate_audio_flag:
-            sound_tag = audio.generate_audio(clean_word)
-        
-        # Create a processed line with sound tags for both TXT and CSV output
-        processed_line = f"{english_part};{sound_tag}{german_part}"
-        processed_lines.append(processed_line)
-        
-        # Create dictionary with the main parts for CSV
-        word_data = {
-            'English': english_part,  # English part with translation
-            'German': (sound_tag + german_part) if sound_tag else german_part  # Add sound tag to German part
-        }
-        
-        anki_data.append(word_data)
-    
-    # Create dataframe and save to CSV
-    if anki_data:
-        df = pd.DataFrame(anki_data)
-        df.to_csv(output_csv, index=False, encoding='utf-8')
-        print(f"Generated Anki cards saved to {output_csv}")
-    else:
-        print("Error: No cards were generated.")
-    
-    # Also save in the txt format 
-    if str(output_file_path).endswith('.txt'):
+        if generate_audio_flag and clean_term:
+            sound_tag = audio.generate_audio(clean_term)
+        elif not clean_term:
+             print(f"Warning: Could not extract clean term for audio from: {german_term_for_audio}")
+
+        # Create the final line for the .txt file
+        final_line = f"{english_part};{sound_tag}{german_part}"
+        processed_lines_for_txt.append(final_line)
+
+    # Write the processed lines to the .txt file
+    if processed_lines_for_txt:
         try:
-            # Write the processed lines with sound tags to the text file
             with open(output_file_path, 'w', encoding='utf-8') as f:
-                for line in processed_lines:
+                for line in processed_lines_for_txt:
                     f.write(line + '\n')
-                    
-            print(f"Also saved Anki cards in text format to {output_file_path}")
+            print(f"Generated Anki deck saved to {output_file_path}")
         except Exception as e:
-            print(f"Error saving text format: {e}")
+            print(f"Error saving Anki deck to {output_file_path}: {e}")
+    else:
+        print("Error: No valid lines were processed to generate the Anki deck.")
 
-def main():
-    """
-    Main function to generate Anki cards.
-    """
-    anki_generator = AnkiGenerator()
-    anki_generator.generate_anki_cards()
-
-if __name__ == "__main__":
-    main() 
+# Removed if __name__ == "__main__" block - This module is not meant to be run directly 

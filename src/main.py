@@ -7,6 +7,7 @@ import json # For parsing curl response
 import base64 # For decoding image data
 from dotenv import load_dotenv # Import load_dotenv
 import shutil # Added for file copying
+from tqdm import tqdm # Import tqdm for progress bars
 
 # Load environment variables from .env file
 load_dotenv()
@@ -137,18 +138,41 @@ def main():
         # Ensure the image output directory exists
         config.IMAGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         updated_formatted_lines = []
-        # Use tqdm here as well if desired, requires importing it
-        # from tqdm import tqdm
-        # for i, item in enumerate(tqdm(processed_data, desc="Generating images")):
-        # Iterate over processed_data to get word info for prompts
-        for i, item in enumerate(processed_data): 
+        # Add tqdm progress bar
+        for i, item in enumerate(tqdm(processed_data, desc="Generating images", unit="image")):
             original_line = formatted_lines[i]
             english_part, german_part = original_line.split(';', 1)
 
             # Construct the new prompt using the English translation and example sentence
             word_translation = item.get('word_translation', '')
             english_sentence = item.get('translation', '') # Get the English example sentence
-            prompt = f"An illustration that visually represents the word '{word_translation}'. The scene should be based on the following sentence: '{english_sentence}'. Include visual elements that clearly convey the meaning of the word in context. Use a realistic style (or cartoon, if preferred), high detail, and a clean background to help with memory retention."
+            prompt = f"""
+                        Create a vibrant, child-friendly flashcard illustration for the word '{word_translation}'.
+                        SCENE DETAILS:
+                        - Illustrate this example sentence: '{english_sentence}'
+                        - Just use image from the internet
+                        - Create a clear, engaging scene that instantly communicates the word's meaning
+                        - Include characters demonstrating the word through their actions/interactions
+                        - Maintain a clean, uncluttered background to help with focus and memory retention
+
+                        EMOTIONAL IMPACT:
+                        - Feature one strong, age-appropriate emotion that reinforces the word's meaning
+                        - Use exaggerated facial expressions and dynamic poses for memorable impact
+                        - Ensure the emotional tone (joy, surprise, curiosity, etc.) connects directly to the word
+
+                        VISUAL STYLE (select ONE):
+                        - Storybook Adventure: Warm colors, soft edges, whimsical elements
+                        - Anime-Inspired: Expressive eyes, dynamic poses, bold energy
+                        - Ghibli Wonder: Natural elements, thoughtful details, gentle magic
+                        - Modern Cartoon: Clean lines, vibrant colors, contemporary feel
+                        - Stylized Realism: Simplified but recognizable real-world elements
+
+                        LEARNING EFFECTIVENESS:
+                        - Position the key concept centrally with strong visual hierarchy
+                        - Include 1-2 distinctive visual elements that serve as memory anchors
+                        - Use color psychology to enhance emotional connection
+                        - Create a visual that works effectively at flashcard size
+                    """
             print(f"  Generating image for: '{item.get('word', '')}' (Prompt based on: '{word_translation}' / Sentence: '{english_sentence}')...")
             base64_image = generate_image_for_prompt(prompt, cloudflare_account_id, cloudflare_api_token)
 

@@ -16,6 +16,7 @@ INPUT_WORDS_FILE = DATA_DIR / "new_words.txt"
 ANKI_OUTPUT_FILE = OUTPUT_DIR / "anki.txt"
 OUTPUT_CSV_FILE = OUTPUT_DIR / "anki_cards.csv"  # CSV output for Anki cards
 AUDIO_OUTPUT_DIR = OUTPUT_DIR / "audio" # Store generated audio within the output dir
+IMAGE_OUTPUT_DIR = OUTPUT_DIR / "images" # Store generated images within the output dir
 
 # Anki media directory (Set via command-line argument only)
 ANKI_MEDIA_DIR = None # This will be updated by main.py based on the arg

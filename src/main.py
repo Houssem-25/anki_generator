@@ -2,9 +2,9 @@ import argparse
 import sys
 import os
 from pathlib import Path
-import subprocess # For calling curl
-import json # For parsing curl response
-import base64 # For decoding image data
+# import subprocess # Removed - Moved to image_generator
+# import json # Removed - Moved to image_generator
+import base64 # Needed for decoding image data before saving
 from dotenv import load_dotenv # Import load_dotenv
 import shutil # Added for file copying
 from tqdm import tqdm # Import tqdm for progress bars
@@ -21,6 +21,7 @@ from src import config
 # from src import nlp_utils # Removed - Unused
 from src import anki_generator
 from src import groq_generator
+from src import image_generator # Import the new module
 # Note: audio module is used by anki_generator
 
 def main():
@@ -146,35 +147,14 @@ def main():
             # Construct the new prompt using the English translation and example sentence
             word_translation = item.get('word_translation', '')
             english_sentence = item.get('translation', '') # Get the English example sentence
-            prompt = f"""
-                        Create a vibrant, child-friendly flashcard illustration for the word '{word_translation}'.
-                        SCENE DETAILS:
-                        - Illustrate this example sentence: '{english_sentence}'
-                        - Just use image from the internet
-                        - Create a clear, engaging scene that instantly communicates the word's meaning
-                        - Include characters demonstrating the word through their actions/interactions
-                        - Maintain a clean, uncluttered background to help with focus and memory retention
-
-                        EMOTIONAL IMPACT:
-                        - Feature one strong, age-appropriate emotion that reinforces the word's meaning
-                        - Use exaggerated facial expressions and dynamic poses for memorable impact
-                        - Ensure the emotional tone (joy, surprise, curiosity, etc.) connects directly to the word
-
-                        VISUAL STYLE (select ONE):
-                        - Storybook Adventure: Warm colors, soft edges, whimsical elements
-                        - Anime-Inspired: Expressive eyes, dynamic poses, bold energy
-                        - Ghibli Wonder: Natural elements, thoughtful details, gentle magic
-                        - Modern Cartoon: Clean lines, vibrant colors, contemporary feel
-                        - Stylized Realism: Simplified but recognizable real-world elements
-
-                        LEARNING EFFECTIVENESS:
-                        - Position the key concept centrally with strong visual hierarchy
-                        - Include 1-2 distinctive visual elements that serve as memory anchors
-                        - Use color psychology to enhance emotional connection
-                        - Create a visual that works effectively at flashcard size
-                    """
             print(f"  Generating image for: '{item.get('word', '')}' (Prompt based on: '{word_translation}' / Sentence: '{english_sentence}')...")
-            base64_image = generate_image_for_prompt(prompt, cloudflare_account_id, cloudflare_api_token)
+            # Call the imported function with word_translation and english_sentence
+            base64_image = image_generator.generate_image_for_prompt(
+                word_translation=word_translation,
+                english_sentence=english_sentence,
+                account_id=cloudflare_account_id,
+                api_token=cloudflare_api_token
+            )
 
             if base64_image:
                 # Create a safe filename (e.g., based on German word)
@@ -184,6 +164,7 @@ def main():
 
                 # Save the image to a file
                 try:
+                    # Import base64 locally where needed or keep it globally if used elsewhere (check this)
                     image_bytes = base64.b64decode(base64_image)
                     with open(image_path, 'wb') as img_file:
                         img_file.write(image_bytes)
@@ -242,59 +223,7 @@ def main():
     # Removed cleanup logic related to temp files
     print("\n--- Anki Card Generation Finished ---")
 
-def generate_image_for_prompt(prompt: str, account_id: str, api_token: str) -> str | None:
-    """Generates an image using Cloudflare AI via curl and returns base64 data."""
-    api_endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/black-forest-labs/flux-1-schnell"
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Content-Type": "application/json"
-    }
-    data = json.dumps({"prompt": prompt})
-
-    try:
-        # Use subprocess.run to execute curl
-        # Set timeout to avoid hanging indefinitely (e.g., 60 seconds)
-        command = [
-            "curl", "-s", "-X", "POST", api_endpoint,
-            "-H", f"Authorization: {headers['Authorization']}",
-            "-H", f"Content-Type: {headers['Content-Type']}",
-            "-d", data
-        ]
-        process = subprocess.run(
-            command, # Use the constructed command list
-            capture_output=True,
-            text=True, # Get stdout/stderr as strings
-            check=True, # Raise CalledProcessError on non-zero exit code
-            timeout=60 
-        )
-
-        # Parse the JSON response from stdout
-        response_json = json.loads(process.stdout)
-        
-        # Check if image data is present
-        if "result" in response_json and "image" in response_json["result"]:
-             # Cloudflare seems to wrap the result in a "result" object now
-            return response_json["result"]["image"]
-        elif "image" in response_json: # Handle direct image response if API changes
-            return response_json["image"]
-        else:
-            print(f"  Error: Unexpected response format from Cloudflare AI: {response_json}")
-            return None
-
-    except subprocess.CalledProcessError as e:
-        print(f"  Error calling Cloudflare AI (curl failed): {e}")
-        print(f"  Stderr: {e.stderr}")
-        return None
-    except subprocess.TimeoutExpired:
-        print(f"  Error: Cloudflare AI request timed out for prompt: '{prompt}'")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"  Error decoding JSON response from Cloudflare AI: {e}")
-        print(f"  Raw Response: {process.stdout}")
-        return None
-    except Exception as e:
-        print(f"  An unexpected error occurred during image generation: {e}")
-        return None
+# Removed the generate_image_for_prompt function from here
 
 if __name__ == "__main__":
     main()

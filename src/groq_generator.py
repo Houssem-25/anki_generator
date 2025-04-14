@@ -102,7 +102,7 @@ Additional info: <any relevant grammar information or usage nuances>
 Keep responses concise and grammatically correct."""
             
             response = client.chat.completions.create(
-                model="llama3-8b-8192",  # Using Llama 3 model
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",  # Using Llama 4 Maverick model
                 messages=[
                     {
                         "role": "system",

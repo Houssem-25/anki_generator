@@ -27,29 +27,12 @@ class WordProcessor:
         self.can_generate_images = can_generate_images
         print("--- Initializing WordProcessor ---")
 
-    def _sanitize_filename(self, filename: str) -> str:
-        """
-        Sanitize a filename by replacing invalid characters with underscores.
-        
-        Args:
-            filename (str): The filename to sanitize
-            
-        Returns:
-            str: The sanitized filename
-        """
-        # Replace any character that's not alphanumeric, underscore, hyphen, or dot with underscore
-        sanitized = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
-        
-        # Replace multiple consecutive underscores with a single underscore
-        sanitized = re.sub(r'_+', '_', sanitized)
-        
-        # Remove leading/trailing underscores and dots
-        sanitized = sanitized.strip('_.')
-        
-        # If the result is empty, use a default name
-        if not sanitized:
-            sanitized = 'unnamed'
-            
+    def _sanitize_filename(self, text: str) -> str:
+        """Sanitize text for use as a filename."""
+        # Replace spaces and special characters with underscores
+        # Keep umlauts and other German characters
+        sanitized = text.strip()
+        sanitized = ''.join(c if c.isalnum() or c in 'äöüÄÖÜß' else '_' for c in sanitized)
         return sanitized
 
     def process_word(self, word: str) -> Optional[str]:
@@ -103,28 +86,25 @@ class WordProcessor:
             # Fallback if parsing fails
             return DEFAULT_GROQ_RETRY_DELAY_SECONDS
 
-    def _handle_groq_error(self, e: Exception, word: str, retries: int) -> Tuple[bool, float, int]:
-        """Handles Groq API errors, determining retry behavior and delay.
-        Returns: (should_retry, delay_seconds, updated_retries)
-        """
-        if isinstance(e, groq.RateLimitError):
-            updated_retries = retries + 1
-            if updated_retries >= MAX_GROQ_RETRIES:
-                print(f"  Error: Max retries ({MAX_GROQ_RETRIES}) reached for '{word}' due to rate limit. Skipping.")
-                return False, 0, updated_retries
-
-            error_detail = str(e)
-            delay = self._parse_retry_after(error_detail)
-            print(f"  Rate limit hit for '{word}'. Retrying in {delay:.2f} seconds... (Attempt {updated_retries}/{MAX_GROQ_RETRIES})")
-            return True, delay, updated_retries
-
-        elif isinstance(e, groq.APIError):
-            print(f"  Error processing '{word}' with Groq API: {e}. Retrying after fixed delay...")
-            return True, 15.0, retries # Retry indefinitely for other API errors
-
-        else: # Handle *other* unexpected errors during Groq call
-            print(f"  Unexpected error during Groq call for '{word}': {e}. Retrying after fixed delay...")
-            return True, 15.0, retries # Retry indefinitely
+    def _handle_groq_error(self, error: Exception, word: str, retries: int) -> Tuple[bool, float, int]:
+        """Handle Groq API errors with exponential backoff."""
+        error_name = error.__class__.__name__
+        error_detail = str(getattr(error, 'detail', str(error)))
+        
+        # Check if we've hit the retry limit
+        if retries >= self.MAX_GROQ_RETRIES:
+            print(f"  Max retries ({self.MAX_GROQ_RETRIES}) reached for word '{word}'. Skipping.")
+            return False, 0, retries
+        
+        # Rate limit errors get a fixed delay
+        if error_name == "RateLimitError":
+            print(f"  Unexpected error during Groq call for '{word}': {error}. Retrying after fixed delay...")
+            return True, 31.0, retries + 1  # Fixed 31-second delay for rate limits
+        
+        # Other errors get exponential backoff
+        delay = min(2 ** retries, self.MAX_BACKOFF_DELAY)
+        print(f"  Unexpected error during Groq call for '{word}': {error}. Retrying with exponential backoff...")
+        return True, delay, retries + 1
 
     def _generate_text(self, word: str) -> Optional[Dict[str, Any]]:
         """Generates text data using the LLM generator with retry logic."""

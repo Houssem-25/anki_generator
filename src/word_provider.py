@@ -24,12 +24,12 @@ class WordProvider:
                 original_words = [line.strip() for line in infile if line.strip()]
             if not original_words:
                 print(f"Error: Input file {self.input_path} is empty.")
-                sys.exit(1)
+                raise ValueError(f"Input file {self.input_path} is empty")
             print(f"Found {len(original_words)} words.")
             return original_words
         except FileNotFoundError:
             print(f"Error: Input file not found at {self.input_path}")
-            sys.exit(1)
+            raise
         except Exception as e:
             print(f"Error reading input file {self.input_path}: {e}")
             sys.exit(1)
@@ -107,6 +107,11 @@ class WordProvider:
         return len(self.words_to_process)
 
     def get_file_mode(self) -> str:
-        """Returns the calculated file mode ('w' or 'a')."""
-        return self.file_mode
+        """Determine the file mode for output file based on its existence and content."""
+        if not self.output_path.exists() or self.output_path.stat().st_size == 0:
+            print(f"\n--- Output file '{self.output_path}' not found or empty. Starting fresh generation. ---")
+            return 'w'
+        else:
+            print(f"\n--- Output file '{self.output_path}' exists. Appending new words. ---")
+            return 'a'
 

@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Now import the module under test and config
-from src import audio
+from src import audio_generator
 from src import config
 
 # --- Fixtures ---
@@ -59,14 +59,14 @@ def test_copy_to_anki_media_success(mock_config_anki_dir, temp_audio_file, mock_
     # Directly assign the Path object for shutil.copy2
     config.ANKI_MEDIA_DIR = mock_anki_media_dir
 
-    result = audio.copy_to_anki_media(temp_audio_file)
+    result = audio_generator.copy_to_anki_media(temp_audio_file)
     assert result is True
     assert (mock_anki_media_dir / temp_audio_file.name).exists()
 
 @patch('src.config.ANKI_MEDIA_DIR', None)
 def test_copy_to_anki_media_not_configured(temp_audio_file, capsys):
     """Test behavior when ANKI_MEDIA_DIR is None."""
-    result = audio.copy_to_anki_media(temp_audio_file)
+    result = audio_generator.copy_to_anki_media(temp_audio_file)
     assert result is False
     captured = capsys.readouterr()
     assert "Warning: Anki media directory not found or not configured" in captured.out
@@ -78,7 +78,7 @@ def test_copy_to_anki_media_dir_does_not_exist(mock_config_anki_dir, temp_audio_
     mock_config_anki_dir.__str__.return_value = "/path/does/not/exist"
     config.ANKI_MEDIA_DIR = mock_config_anki_dir # Assign the mock
 
-    result = audio.copy_to_anki_media(temp_audio_file)
+    result = audio_generator.copy_to_anki_media(temp_audio_file)
     assert result is False
     captured = capsys.readouterr()
     assert "Warning: Anki media directory not found or not configured" in captured.out
@@ -90,7 +90,7 @@ def test_copy_to_anki_media_source_not_found(mock_config_anki_dir, mock_copy, te
     mock_config_anki_dir.exists.return_value = True
     config.ANKI_MEDIA_DIR = mock_anki_media_dir # Assign the actual path
 
-    result = audio.copy_to_anki_media(temp_audio_file) # temp_audio_file exists, but copy2 raises error
+    result = audio_generator.copy_to_anki_media(temp_audio_file) # temp_audio_file exists, but copy2 raises error
     assert result is False
     captured = capsys.readouterr()
     # Note: The FileNotFoundError will be caught by the specific handler now.
@@ -103,7 +103,7 @@ def test_copy_to_anki_media_permission_error(mock_config_anki_dir, mock_copy, te
     mock_config_anki_dir.exists.return_value = True
     config.ANKI_MEDIA_DIR = mock_anki_media_dir
 
-    result = audio.copy_to_anki_media(temp_audio_file)
+    result = audio_generator.copy_to_anki_media(temp_audio_file)
     assert result is False
     captured = capsys.readouterr()
     assert f"Error: Permission denied copying to {config.ANKI_MEDIA_DIR}." in captured.out
@@ -111,8 +111,8 @@ def test_copy_to_anki_media_permission_error(mock_config_anki_dir, mock_copy, te
 
 # --- Tests for generate_audio ---
 
-@patch('src.audio.copy_to_anki_media', return_value=True)
-@patch('src.audio.gTTS', autospec=True)
+@patch('src.audio_generator.copy_to_anki_media', return_value=True)
+@patch('src.audio_generator.gTTS', autospec=True)
 def test_generate_audio_success(mock_gtts, mock_copy, tmp_path):
     """Test successful audio generation and copy."""
     test_text = "Hallo Welt"
@@ -124,7 +124,7 @@ def test_generate_audio_success(mock_gtts, mock_copy, tmp_path):
     mock_tts_instance = MagicMock()
     mock_gtts.return_value = mock_tts_instance
 
-    result = audio.generate_audio(test_text)
+    result = audio_generator.generate_audio(test_text)
 
     assert result == expected_tag
     mock_gtts.assert_called_once_with(text=test_text, lang=config.AUDIO_LANG)
@@ -132,8 +132,8 @@ def test_generate_audio_success(mock_gtts, mock_copy, tmp_path):
     mock_copy.assert_called_once_with(expected_output_file)
     # We don't assert file existence because save is mocked
 
-@patch('src.audio.copy_to_anki_media', return_value=True)
-@patch('src.audio.gTTS', autospec=True)
+@patch('src.audio_generator.copy_to_anki_media', return_value=True)
+@patch('src.audio_generator.gTTS', autospec=True)
 def test_generate_audio_sanitizes_filename(mock_gtts, mock_copy):
     """Test filename sanitization."""
     test_text = "Test/Text Mit\\Space"
@@ -144,7 +144,7 @@ def test_generate_audio_sanitizes_filename(mock_gtts, mock_copy):
     mock_tts_instance = MagicMock()
     mock_gtts.return_value = mock_tts_instance
 
-    result = audio.generate_audio(test_text)
+    result = audio_generator.generate_audio(test_text)
 
     assert result == expected_tag
     mock_gtts.assert_called_once_with(text=test_text, lang=config.AUDIO_LANG)
@@ -152,8 +152,8 @@ def test_generate_audio_sanitizes_filename(mock_gtts, mock_copy):
     mock_copy.assert_called_once_with(expected_output_file)
 
 
-@patch('src.audio.copy_to_anki_media', return_value=True)
-@patch('src.audio.gTTS') # Don't need autospec here as we won't call it
+@patch('src.audio_generator.copy_to_anki_media', return_value=True)
+@patch('src.audio_generator.gTTS', autospec=True)
 def test_generate_audio_already_exists(mock_gtts, mock_copy):
     """Test behavior when audio file already exists."""
     test_text = "Existing Text"
@@ -164,7 +164,7 @@ def test_generate_audio_already_exists(mock_gtts, mock_copy):
     # Create the dummy file
     output_file.touch()
 
-    result = audio.generate_audio(test_text)
+    result = audio_generator.generate_audio(test_text)
 
     assert result == expected_tag
     mock_gtts.assert_not_called() # Generation should be skipped
@@ -172,13 +172,13 @@ def test_generate_audio_already_exists(mock_gtts, mock_copy):
     mock_copy.assert_called_once_with(output_file)
 
 
-@patch('src.audio.copy_to_anki_media')
-@patch('src.audio.gTTS', side_effect=Exception("gTTS Network Error"))
+@patch('src.audio_generator.copy_to_anki_media')
+@patch('src.audio_generator.gTTS', side_effect=Exception("gTTS Network Error"))
 def test_generate_audio_gtts_error(mock_gtts, mock_copy, capsys):
     """Test behavior when gTTS fails."""
     test_text = "Error Text"
 
-    result = audio.generate_audio(test_text)
+    result = audio_generator.generate_audio(test_text)
 
     assert result == "" # Should return empty string on error
     mock_gtts.assert_called_once_with(text=test_text, lang=config.AUDIO_LANG)
@@ -186,7 +186,7 @@ def test_generate_audio_gtts_error(mock_gtts, mock_copy, capsys):
     captured = capsys.readouterr()
     assert f"Error generating audio for '{test_text}': gTTS Network Error" in captured.out
 
-@patch('src.audio.gTTS')
+@patch('src.audio_generator.gTTS')
 def test_generate_audio_creates_output_dir(mock_gtts, tmp_path):
     """Test that the output directory is created if it doesn't exist."""
     # Ensure the directory doesn't exist initially for this test
@@ -199,8 +199,8 @@ def test_generate_audio_creates_output_dir(mock_gtts, tmp_path):
         mock_tts_instance = MagicMock()
         mock_gtts.return_value = mock_tts_instance
         # We don't care about the return value or copy for this test
-        with patch('src.audio.copy_to_anki_media'):
-             audio.generate_audio(test_text)
+        with patch('src.audio_generator.copy_to_anki_media'):
+             audio_generator.generate_audio(test_text)
 
         # Assert that the directory was created
         assert test_output_dir.exists()

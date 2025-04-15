@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import the module under test and config
-from src import groq_generator
+from src import llm_generator
 from src import config
 import groq # Import groq for APIError
 
@@ -23,7 +23,7 @@ def sample_words() -> List[str]:
 @pytest.fixture
 def mock_groq_client():
     """Fixture to mock the Groq client and its chat completion method."""
-    with patch('src.groq_generator.client', autospec=True) as mock_client:
+    with patch('src.llm_generator.client', autospec=True) as mock_client:
         # Mock the chat.completions.create method
         mock_response = MagicMock()
         # We will set the response content per test
@@ -67,7 +67,7 @@ def test_process_groq_response_full_noun():
         "additional_info": "Common noun.",
         "related_words": "Gebäude (building), Wohnung (apartment), Zuhause (home)"
     }
-    assert groq_generator.process_groq_response(word, response_text) == expected_result
+    assert llm_generator.process_groq_response(word, response_text) == expected_result
 
 def test_process_groq_response_full_verb():
     word = "laufen"
@@ -94,7 +94,7 @@ def test_process_groq_response_full_verb():
         "additional_info": "Can also mean 'to walk'.",
         "related_words": "Rennen (to race), Spaziergang (walk), Lauf (run)"
     }
-    assert groq_generator.process_groq_response(word, response_text) == expected_result
+    assert llm_generator.process_groq_response(word, response_text) == expected_result
 
 def test_process_groq_response_other_type():
     word = "schnell"
@@ -119,7 +119,7 @@ def test_process_groq_response_other_type():
         "additional_info": "Basic adjective.",
         "related_words": "Geschwindigkeit (speed), rasch (swift)"
     }
-    assert groq_generator.process_groq_response(word, response_text) == expected_result
+    assert llm_generator.process_groq_response(word, response_text) == expected_result
 
 def test_process_groq_response_missing_fields():
     word = "Test"
@@ -140,7 +140,7 @@ def test_process_groq_response_missing_fields():
         "additional_info": "",
         "related_words": ""
     }
-    assert groq_generator.process_groq_response(word, response_text) == expected_result
+    assert llm_generator.process_groq_response(word, response_text) == expected_result
 
 def test_process_groq_response_empty_response():
     word = "Empty"
@@ -158,7 +158,7 @@ def test_process_groq_response_empty_response():
         "additional_info": "",
         "related_words": ""
     }
-    assert groq_generator.process_groq_response(word, response_text) == expected_result
+    assert llm_generator.process_groq_response(word, response_text) == expected_result
 
 # --- Tests for format_for_anki_import ---
 
@@ -177,7 +177,7 @@ def test_format_for_anki_import_noun():
     expected_format = [
         "house<br>This is my house.;<span style=\"color: rgb(0, 255, 51)\">Das</span> Haus (Häuser)<br>Das ist mein Haus.<br>Related: Gebäude, Wohnung<br>Info: Common noun"
     ]
-    assert groq_generator.format_for_anki_import(processed_words) == expected_format
+    assert llm_generator.format_for_anki_import(processed_words) == expected_format
 
 def test_format_for_anki_import_verb():
     processed_words = [{
@@ -194,7 +194,7 @@ def test_format_for_anki_import_verb():
     expected_format = [
         "to run, to walk<br>I run every day.;laufen<br>Präsens: er läuft, Perfekt: er ist gelaufen, Präteritum: er lief<br>Case: Akkusativ<br>Ich laufe jeden Tag.<br>Related: Rennen, Spaziergang<br>Info: Can mean walk"
     ]
-    assert groq_generator.format_for_anki_import(processed_words) == expected_format
+    assert llm_generator.format_for_anki_import(processed_words) == expected_format
 
 def test_format_for_anki_import_other():
     processed_words = [{
@@ -209,7 +209,7 @@ def test_format_for_anki_import_other():
     expected_format = [
         "fast, quick<br>The car is fast.;schnell<br>Das Auto ist schnell.<br>Related: Geschwindigkeit, rasch<br>Info: Basic adjective"
     ]
-    assert groq_generator.format_for_anki_import(processed_words) == expected_format
+    assert llm_generator.format_for_anki_import(processed_words) == expected_format
 
 def test_format_for_anki_import_missing_fields():
     processed_words = [{
@@ -223,7 +223,7 @@ def test_format_for_anki_import_missing_fields():
     expected_format = [
         "test<br>A test.;Test<br>Ein Test."
     ]
-    assert groq_generator.format_for_anki_import(processed_words) == expected_format
+    assert llm_generator.format_for_anki_import(processed_words) == expected_format
 
 def test_format_for_anki_import_multiple_words():
     processed_words = [
@@ -240,11 +240,11 @@ def test_format_for_anki_import_multiple_words():
         "house<br>The house;<span style=\"color: rgb(0, 255, 51)\">Das</span> Haus (Häuser)<br>Das Haus",
         "to run<br>I run;laufen<br>er läuft<br>Ich laufe"
     ]
-    assert groq_generator.format_for_anki_import(processed_words) == expected_format
+    assert llm_generator.format_for_anki_import(processed_words) == expected_format
 
 # --- Tests for process_german_words ---
 
-@patch('src.groq_generator.process_groq_response')
+@patch('src.llm_generator.process_groq_response')
 def test_process_german_words_success(mock_process_response, mock_groq_client, sample_words):
     """Test successful processing of multiple words."""
     # Define mock responses from Groq for each word
@@ -277,7 +277,7 @@ def test_process_german_words_success(mock_process_response, mock_groq_client, s
     # Configure the mock process_groq_response
     mock_process_response.side_effect = lambda w, r: mock_processed_data.get(w, {})
 
-    results = groq_generator.process_german_words(sample_words)
+    results = llm_generator.process_german_words(sample_words)
 
     assert len(results) == len(sample_words)
     assert mock_groq_client.chat.completions.create.call_count == len(sample_words)
@@ -294,7 +294,7 @@ def test_process_german_words_success(mock_process_response, mock_groq_client, s
     assert "verb" in calls[1].kwargs['messages'][0]['content'] # laufen -> verb prompt
     assert "adjective/adverb/preposition" in calls[2].kwargs['messages'][0]['content'] # schnell -> other prompt
 
-@patch('src.groq_generator.process_groq_response')
+@patch('src.llm_generator.process_groq_response')
 def test_process_german_words_api_error(mock_process_response, mock_groq_client, sample_words, capsys):
     """Test handling of Groq API errors."""
     error_word = "laufen"
@@ -320,7 +320,7 @@ def test_process_german_words_api_error(mock_process_response, mock_groq_client,
     # Mock process_groq_response for the successful calls
     mock_process_response.side_effect = lambda w, r: {"word": w, "word_type": "test", "word_translation": f"test_{w}"} if w != error_word else None
 
-    results = groq_generator.process_german_words(sample_words)
+    results = llm_generator.process_german_words(sample_words)
 
     assert len(results) == len(sample_words)
     assert mock_groq_client.chat.completions.create.call_count == len(sample_words)
@@ -343,27 +343,27 @@ def test_process_german_words_api_error(mock_process_response, mock_groq_client,
 
 def test_process_german_words_no_client(sample_words, capsys):
     """Test behavior when Groq client is not initialized."""
-    with patch('src.groq_generator.client', None):
-        results = groq_generator.process_german_words(sample_words)
+    with patch('src.llm_generator.client', None):
+        results = llm_generator.process_german_words(sample_words)
         assert results == []
         captured = capsys.readouterr()
         assert "Groq client not initialized" in captured.out
 
 # --- Tests for get_word_info ---
 
-@patch('src.groq_generator.process_german_words')
+@patch('src.llm_generator.process_german_words')
 def test_get_word_info_success(mock_process_german_words):
     """Test successful retrieval of word info."""
     word = "Einzelwort"
     expected_info = {"word": word, "word_type": "noun", "gender": "neuter"}
     mock_process_german_words.return_value = [expected_info]
 
-    result = groq_generator.get_word_info(word)
+    result = llm_generator.get_word_info(word)
 
     mock_process_german_words.assert_called_once_with([word])
     assert result == expected_info
 
-@patch('src.groq_generator.process_german_words', return_value=[])
+@patch('src.llm_generator.process_german_words', return_value=[])
 def test_get_word_info_failure(mock_process_german_words):
     """Test failure case where process_german_words returns empty list."""
     word = "Fehlerwort"
@@ -381,15 +381,15 @@ def test_get_word_info_failure(mock_process_german_words):
         "related_words": ""
     }
 
-    result = groq_generator.get_word_info(word)
+    result = llm_generator.get_word_info(word)
 
     mock_process_german_words.assert_called_once_with([word])
     assert result == expected_empty_result
 
 # --- Tests for process_words_file ---
 
-@patch('src.groq_generator.format_for_anki_import')
-@patch('src.groq_generator.process_german_words')
+@patch('src.llm_generator.format_for_anki_import')
+@patch('src.llm_generator.process_german_words')
 @patch('builtins.open', new_callable=mock_open)
 @patch('pathlib.Path.exists', return_value=True) # Mock exists to return True
 def test_process_words_file_success(mock_exists, mock_file, mock_process, mock_format, sample_words):
@@ -405,7 +405,7 @@ def test_process_words_file_success(mock_exists, mock_file, mock_process, mock_f
     mock_format.return_value = mock_formatted_lines
 
     # Don't specify output_file_path to prevent CSV writing attempt
-    formatted_lines, processed_data = groq_generator.process_words_file(input_file_path=input_path)
+    formatted_lines, processed_data = llm_generator.process_words_file(input_file_path=input_path)
 
     mock_exists.assert_called_once() # Check that exists was called
     assert call(input_path, 'r', encoding='utf-8') in mock_file.call_args_list # Check if call exists
@@ -414,8 +414,8 @@ def test_process_words_file_success(mock_exists, mock_file, mock_process, mock_f
     assert formatted_lines == mock_formatted_lines
     assert processed_data == mock_processed_data
 
-@patch('src.groq_generator.format_for_anki_import')
-@patch('src.groq_generator.process_german_words')
+@patch('src.llm_generator.format_for_anki_import')
+@patch('src.llm_generator.process_german_words')
 @patch('builtins.open', new_callable=mock_open)
 @patch('pathlib.Path.exists', return_value=True) # Mock exists to return True
 def test_process_words_file_handles_empty_lines_and_strip(mock_exists, mock_file, mock_process, mock_format):
@@ -430,7 +430,7 @@ def test_process_words_file_handles_empty_lines_and_strip(mock_exists, mock_file
     mock_process.return_value = mock_processed_data
     mock_format.return_value = [f"formatted_{w}" for w in expected_words_to_process]
 
-    formatted_lines, processed_data = groq_generator.process_words_file(input_file_path=input_path)
+    formatted_lines, processed_data = llm_generator.process_words_file(input_file_path=input_path)
 
     mock_exists.assert_called_once() # Check that exists was called
     assert call(input_path, 'r', encoding='utf-8') in mock_file.call_args_list # Check if call exists
@@ -445,7 +445,7 @@ def test_process_words_file_input_not_found(mock_exists, mock_file, capsys):
     """Test handling when input file does not exist."""
     input_path = Path("nonexistent/input.txt")
 
-    formatted_lines, processed_data = groq_generator.process_words_file(input_file_path=input_path)
+    formatted_lines, processed_data = llm_generator.process_words_file(input_file_path=input_path)
 
     mock_exists.assert_called_once() # exists should be checked
     mock_file.assert_not_called() # Ensure open is not called

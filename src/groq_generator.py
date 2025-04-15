@@ -2,7 +2,7 @@ import os
 import groq
 from typing import List, Dict, Tuple, Union
 from pathlib import Path
-from tqdm import tqdm
+# from tqdm import tqdm # Removed
 from . import config
 
 # Initialize the Groq client with the API key from environment variable
@@ -36,8 +36,8 @@ def process_german_words(words: List[str]) -> List[Dict]:
         
     results = []
     
-    # Wrap the loop with tqdm for a progress bar
-    for word in tqdm(words, desc="Processing words with Groq"):
+    # Loop through words (removed tqdm wrapper as it's now called per word)
+    for word in words:
         try:
             # First check if the word might be a verb (ends with 'en' or 'n' typically)
             is_potential_verb = word.lower().endswith(('en', 'n', 'rn', 'ln')) and len(word) > 2
@@ -285,15 +285,15 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             
             # Include example after word/plural info
             if example:
-                german_part = f"{german_part}<br>{example}"
+                german_part = f"{german_part}<br><br>{example}"
             
             # Add related words if available
             if related_words:
-                german_part = f"{german_part}<br>Related: {related_words}"
+                german_part = f"{german_part}<br><br><br><br>Related: {related_words}"
             
             # Add additional info if available
             if additional_info:
-                german_part = f"{german_part}<br>Info: {additional_info}"
+                german_part = f"{german_part}<br><br><br><br>Info: {additional_info}"
             
         # For verbs: include word, conjugation and case
         elif 'verb' in word_type:
@@ -312,19 +312,19 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             if case_info:
                 german_part_components.append(f"Case: {case_info}")
                 
-            german_part = "<br>".join(german_part_components)
+            german_part = "<br><br>".join(german_part_components)
             
             # Include example after grammatical info
             if example:
-                german_part = f"{german_part}<br>{example}"
+                german_part = f"{german_part}<br><br>{example}"
             
             # Add related words if available
             if related_words:
-                german_part = f"{german_part}<br>Related: {related_words}"
+                german_part = f"{german_part}<br><br><br>Related: {related_words}"
             
             # Add additional info if available
             if additional_info:
-                german_part = f"{german_part}<br>Info: {additional_info}"
+                german_part = f"{german_part}<br><br><br>Info: {additional_info}"
             
         # For other word types: just include the word and any additional info
         else:
@@ -333,15 +333,15 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
             
             # Include example after additional info
             if example:
-                german_part = f"{german_part}<br>{example}"
+                german_part = f"{german_part}<br><br>{example}"
             
             # Add related words if available
             if related_words:
-                german_part = f"{german_part}<br>Related: {related_words}"
+                german_part = f"{german_part}<br><br><br>Related: {related_words}"
             
             # Add additional info if available
             if additional_info:
-                german_part = f"{german_part}<br>Info: {additional_info}"
+                german_part = f"{german_part}<br><br><br>Info: {additional_info}"
         
         # ENGLISH PART (first part before the semicolon)
         # -----------
@@ -350,7 +350,7 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
         
         # Add example translation directly without "Example:" prefix
         if example_translation:
-            english_part = f"{english_part}<br>{example_translation}"
+            english_part = f"{english_part}<br><br>{example_translation}"
         
         # Combine parts in the new order: ENGLISH; GERMAN
         formatted_line = f"{english_part};{german_part}"

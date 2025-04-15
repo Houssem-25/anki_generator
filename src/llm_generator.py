@@ -192,38 +192,6 @@ def process_groq_response(word: str, response_text: str) -> Dict:
     
     return result
 
-def get_word_info(word: str) -> Dict[str, str]:
-    """
-    Get detailed information about a German word using Groq API.
-    This function is used by nlp_utils.py as a compatibility layer.
-    
-    Args:
-        word: The German word to analyze
-        
-    Returns:
-        Dictionary containing word information (word_type, gender, plural, etc.)
-    """
-    # Process a single word with Groq
-    processed_data = process_german_words([word])
-    
-    # Return the word info if available, otherwise return empty dict
-    if processed_data and len(processed_data) > 0:
-        return processed_data[0]
-    else:
-        return {
-            "word": word,
-            "word_translation": "",
-            "phrase": "",
-            "translation": "",
-            "word_type": "unknown",
-            "conjugation": "",
-            "case_info": "",
-            "gender": "",
-            "plural": "",
-            "additional_info": "",
-            "related_words": ""
-        }
-
 def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
     """
     Format the processed words for Anki import.
@@ -232,7 +200,7 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
         processed_words: List of dictionaries with word and related information
         
     Returns:
-        List of strings in a format ready for anki_generator.py
+        List of strings in a format ready for the main application
     """
     formatted_lines = []
     
@@ -247,162 +215,68 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
         word_type = item.get('word_type', '').lower()
         word = item['word']
         translation = item.get('word_translation', '')
-        example = item.get('phrase', '')
-        example_translation = item.get('translation', '')
-        related_words = item.get('related_words', '')
+        example_de = item.get('phrase', '')
+        example_en = item.get('translation', '')
+        conjugation = item.get('conjugation', '')
+        case_info = item.get('case_info', '')
+        gender = item.get('gender', '').lower()
+        plural = item.get('plural', '')
         additional_info = item.get('additional_info', '')
-        
-        # GERMAN PART (second part after the semicolon)
-        # ----------
-        # For nouns: include colored article, word, and plural
-        if 'noun' in word_type:
-            # Clean up word from existing articles if present
-            clean_word = word
-            for article_pattern in ["der ", "die ", "das ", "Der ", "Die ", "Das "]:
-                if clean_word.startswith(article_pattern):
-                    clean_word = clean_word[len(article_pattern):]
-            
-            # Add colored article based on gender
-            gender = item.get('gender', '').lower()
-            if 'masculine' in gender:
-                article_colored = article_html["masculine"]
-            elif 'feminine' in gender:
-                article_colored = article_html["feminine"]
-            elif 'neuter' in gender:
-                article_colored = article_html["neuter"]
-            else:
-                article_colored = ""
-            
-            # Format plural if available
-            plural = item.get('plural', '')
-            if plural:
-                plural_info = f" ({plural})"
-            else:
-                plural_info = ""
-                
-            # Build German part with word and plural
-            german_part = f"{article_colored}{clean_word}{plural_info}"
-            
-            # Include example after word/plural info
-            if example:
-                german_part = f"{german_part}<br><br>{example}"
-            
-            # Add related words if available
-            if related_words:
-                german_part = f"{german_part}<br><br><br><br>Related: {related_words}"
-            
-            # Add additional info if available
-            if additional_info:
-                german_part = f"{german_part}<br><br><br><br>Info: {additional_info}"
-            
-        # For verbs: include word, conjugation and case
-        elif 'verb' in word_type:
-            # Get conjugation and case if available
-            conjugation = item.get('conjugation', '')
-            case_info = item.get('case_info', '')
-            
-            # Remove example from case info (to avoid duplication)
-            if " - Example:" in case_info:
-                case_info = case_info.split(" - Example:")[0].strip()
-            
-            # Build German part incrementally, adding sections only if they have content
-            german_part_components = [word]
-            if conjugation:
-                german_part_components.append(conjugation)
-            if case_info:
-                german_part_components.append(f"Case: {case_info}")
-                
-            german_part = "<br><br>".join(german_part_components)
-            
-            # Include example after grammatical info
-            if example:
-                german_part = f"{german_part}<br><br>{example}"
-            
-            # Add related words if available
-            if related_words:
-                german_part = f"{german_part}<br><br><br>Related: {related_words}"
-            
-            # Add additional info if available
-            if additional_info:
-                german_part = f"{german_part}<br><br><br>Info: {additional_info}"
-            
-        # For other word types: just include the word and any additional info
-        else:
-            # Build German part with word
-            german_part = f"{word}"
-            
-            # Include example after additional info
-            if example:
-                german_part = f"{german_part}<br><br>{example}"
-            
-            # Add related words if available
-            if related_words:
-                german_part = f"{german_part}<br><br><br>Related: {related_words}"
-            
-            # Add additional info if available
-            if additional_info:
-                german_part = f"{german_part}<br><br><br>Info: {additional_info}"
-        
-        # ENGLISH PART (first part before the semicolon)
-        # -----------
-        # Include translation and example sentence translation
-        english_part = translation
-        
-        # Add example translation directly without "Example:" prefix
-        if example_translation:
-            english_part = f"{english_part}<br><br>{example_translation}"
-        
-        # Combine parts in the new order: ENGLISH; GERMAN
-        formatted_line = f"{english_part};{german_part}"
-        formatted_lines.append(formatted_line)
-    
-    return formatted_lines
+        related_words = item.get('related_words', '')
 
-def process_words_file(input_file_path=config.INPUT_WORDS_FILE, 
-                      output_file_path=None) -> Tuple[List[str], List[Dict]]:
-    """
-    Process a file containing German words using Groq API.
-    
-    Args:
-        input_file_path: Path to the input file with German words
-        output_file_path: Optional path to save the formatted output
+        # --- English Part (Front of Card) ---
+        english_part = translation
+        if example_en:
+            # Use <br><br> for spacing on the front
+            english_part += f"<br><br>{example_en}"
         
-    Returns:
-        Tuple of (formatted lines for Anki import, raw processed data)
-    """
-    try:
-        # Convert to Path objects if they're strings
-        input_file_path = Path(input_file_path)
-        if output_file_path:
-            output_file_path = Path(output_file_path)
-        
-        # Ensure input directory exists
-        if not input_file_path.exists():
-            print(f"Error: Input file not found at {input_file_path}")
-            return [], []
-        
-        # Read words from the input file
-        with open(input_file_path, 'r', encoding='utf-8') as infile:
-            words = [line.strip() for line in infile.readlines() if line.strip()]
+        # --- German Part (Back of Card) ---
+        german_parts_list = [] # Build the German part step-by-step
+        core_german_info = ""
+
+        if "noun" in word_type:
+            article_span = article_html.get(gender, '')
+            # Ensure proper spacing if article exists
+            word_display = f"{article_span}{word}" if article_span else word
+            plural_display = f"({plural})" if plural else ""
+            # Add space only if both word and plural exist
+            core_german_info = f"{word_display} {plural_display}".strip()
             
-        print(f"Processing {len(words)} words with Groq API...")
-        processed_data = process_german_words(words)
-        formatted_lines = format_for_anki_import(processed_data)
-        
-        if output_file_path:
-            # Ensure output directory exists
-            os.makedirs(output_file_path.parent, exist_ok=True)
+        elif "verb" in word_type:
+            core_german_info = word # Start with the verb infinitive
+            if conjugation:
+                 core_german_info += f"<br><br>Conj: {conjugation}" # Add conj with spacing
+            if case_info:
+                 core_german_info += f"<br>Case: {case_info}" # Add case right after
+                 
+        else: # Adjectives, Adverbs, Prepositions, etc.
+             core_german_info = word # Just the word itself
+
+        # Add the core info first
+        if core_german_info:
+            german_parts_list.append(core_german_info)
+
+        # Add example sentence if it exists
+        if example_de:
+             german_parts_list.append(example_de)
+
+        # Prepare related words section
+        related_part = ""
+        if related_words:
+            related_part = f"Related: {related_words}"
+            german_parts_list.append(related_part)
+
+        # Prepare additional info section
+        info_part = ""
+        if additional_info:
+            info_part = f"Info: {additional_info}"
+            german_parts_list.append(info_part)
             
-            with open(output_file_path, 'w', encoding='utf-8') as outfile:
-                for line in formatted_lines:
-                    outfile.write(line + '\n')
-            print(f"Saved formatted output to {output_file_path}")
-            
-        return formatted_lines, processed_data
+        # Join the German parts with the desired separator
+        german_part_final = "<br><br><br>".join(p for p in german_parts_list if p) # Use 3 breaks, filter empty
+
+        # Combine English and German parts for the final Anki line
+        final_line = f"{english_part};{german_part_final}"
+        formatted_lines.append(final_line)
         
-    except FileNotFoundError:
-        print(f"Error: Input file not found at {input_file_path}")
-        return [], []
-    except Exception as e:
-        print(f"Error processing words file: {e}")
-        return [], [] 
+    return formatted_lines 

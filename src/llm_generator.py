@@ -48,13 +48,14 @@ def process_german_words(words: List[str]) -> List[Dict]:
             if is_potential_verb:
                 system_content = """You are a German language expert assistant. For the German verb provided, generate:
 1. A detailed English translation of the verb (1-2 phrases maximum explaining the meaning more precisely)
-2. An example German sentence using the verb
-3. An accurate English translation of that sentence
-4. The 3rd person singular (er/sie/es) conjugation for Präsens, Perfekt (including auxiliary verb), and Präteritum, separated by commas. Example: er geht, er ist gegangen, er ging
-5. Whether the verb requires accusative, dative, or both cases
-6. The word type (verb) and any subtypes (regular, separable, reflexive, etc.)
-7. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
-8. Any additional relevant information about usage, nuances, or special considerations
+2. An example German sentence using the verb.
+3. Ensure the verb is used in its proper form—respecting whether it is trennbar (separable) or nicht trennbar (inseparable)—within the sentence.
+4. An accurate English translation of that sentence
+5. The 3rd person singular (er/sie/es) conjugation for Präsens, Perfekt (including auxiliary verb), and Präteritum, separated by commas. Example: er geht, er ist gegangen, er ging
+6. Whether the verb requires accusative, dative, or both cases
+7. The word type (verb) and any subtypes (regular, separable, reflexive, etc.)
+8. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
+9. Any additional relevant information about usage, nuances, or special considerations
 
 Format your response exactly like this:
 Word type: verb, [subtype if applicable]
@@ -102,7 +103,7 @@ Additional info: <any relevant grammar information or usage nuances>
 Keep responses concise and grammatically correct."""
             
             response = client.chat.completions.create(
-                model="meta-llama/llama-4-maverick-17b-128e-instruct",  # Using Llama 4 Maverick model
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",  # meta-llama/llama-4-maverick-17b-128e-instruct
                 messages=[
                     {
                         "role": "system",
@@ -245,9 +246,9 @@ def format_for_anki_import(processed_words: List[Dict]) -> List[str]:
         elif "verb" in word_type:
             core_german_info = word # Start with the verb infinitive
             if conjugation:
-                 core_german_info += f"<br><br>Conj: {conjugation}" # Add conj with spacing
+                 core_german_info += f"<br><br><br>Conj: {conjugation}" # Add conj with spacing
             if case_info:
-                 core_german_info += f"<br>Case: {case_info}" # Add case right after
+                 core_german_info += f"<br><br><br>Case: {case_info}" # Add case right after
                  
         else: # Adjectives, Adverbs, Prepositions, etc.
              core_german_info = word # Just the word itself

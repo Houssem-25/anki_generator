@@ -155,6 +155,20 @@ print("Current working directory:", os.getcwd())
 # Create a simple script that processes the words directly without imports
 temp_output_file = "{self.output_file}"
 
+# Set up environment variables
+my_env = os.environ.copy()
+my_env["PYTHONPATH"] = os.getcwd()  # This is critical for imports to work
+
+# Add Cloudflare credentials if image generation is enabled
+if {self.generate_images}:
+    # These should be passed from the parent process
+    if "CLOUDFLARE_ACCOUNT_ID" in os.environ and "CLOUDFLARE_API_TOKEN" in os.environ:
+        my_env["CLOUDFLARE_ACCOUNT_ID"] = os.environ["CLOUDFLARE_ACCOUNT_ID"]
+        my_env["CLOUDFLARE_API_TOKEN"] = os.environ["CLOUDFLARE_API_TOKEN"]
+        print("Cloudflare credentials set for image generation")
+    else:
+        print("WARNING: Cloudflare credentials not found in environment, images may fail")
+
 # Run Python as a module with proper imports
 cmd = [
     sys.executable,
@@ -170,10 +184,6 @@ if not {self.generate_images}:
     cmd.append("--no-image")
 
 print(f"Running command: {{' '.join(cmd)}}")
-
-# Set PYTHONPATH to include the current directory
-my_env = os.environ.copy()
-my_env["PYTHONPATH"] = os.getcwd()  # This is critical for imports to work
 
 # Use the modified environment
 result = subprocess.run(cmd, capture_output=True, text=True, env=my_env)
@@ -203,6 +213,22 @@ sys.exit(result.returncode)
             
             self.console_signal.emit(f"Running processor script...")
             
+            # Set up environment properly for the subprocess
+            my_env = os.environ.copy()
+            my_env["PYTHONUNBUFFERED"] = "1"  # Force Python to be unbuffered
+            
+            # Make sure Cloudflare credentials are passed to the subprocess if present
+            if self.generate_images:
+                self.console_signal.emit(f"Debug: Image generation is enabled")
+                if 'CLOUDFLARE_ACCOUNT_ID' in os.environ and 'CLOUDFLARE_API_TOKEN' in os.environ:
+                    my_env["CLOUDFLARE_ACCOUNT_ID"] = os.environ['CLOUDFLARE_ACCOUNT_ID']
+                    my_env["CLOUDFLARE_API_TOKEN"] = os.environ['CLOUDFLARE_API_TOKEN']
+                    self.console_signal.emit(f"Debug: Cloudflare credentials passed to subprocess")
+                else:
+                    self.console_signal.emit(f"Debug: WARNING! Cloudflare credentials missing from environment")
+            else:
+                self.console_signal.emit(f"Debug: Image generation is disabled")
+            
             # Start subprocess and monitor its output
             process = subprocess.Popen(
                 cmd, 
@@ -210,7 +236,8 @@ sys.exit(result.returncode)
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,  # Line buffering
-                universal_newlines=True  # Ensure text mode with universal newlines
+                universal_newlines=True,  # Ensure text mode with universal newlines
+                env=my_env  # Use the modified environment
             )
             
             # Track progress
@@ -231,7 +258,19 @@ sys.exit(result.returncode)
                     if is_error:
                         self.console_signal.emit(f"ERROR: {line}")
                     else:
+                        # Skip lines containing the command execution details
+                        if "Running command:" in line:
+                            continue
+                        
+                        # Skip debug messages related to Cloudflare credentials
+                        if line.startswith("Debug:") or "Cloudflare credentials" in line:
+                            continue
+                            
+                        # Emit each line immediately
                         self.console_signal.emit(line)
+                        
+                        # Force the main thread to process events after each line
+                        QApplication.instance().processEvents()
                         
                         # Track progress based on specific markers in the output
                         # More aggressively track progress by checking for various word processing markers
@@ -584,6 +623,13 @@ class ConsoleOutput(QTextEdit):
         timestamp = QApplication.instance().style().standardIcon(QApplication.style().SP_DialogApplyButton)
         self.append(f'<span style="color:{color};">[{message_type.upper()}] {message}</span>')
         
+        # Force the vertical scrollbar to move to the bottom
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+        
+        # Ensure immediate update
+        self.repaint()
+        QApplication.processEvents()
+        
     def clear_console(self):
         self.clear()
 
@@ -600,7 +646,7 @@ class WelcomeScreen(QWidget):
         # Create content widget that will be scrollable
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(50, 50, 50, 50)
+        content_layout.setContentsMargins(30, 30, 30, 30)
         content_layout.setAlignment(Qt.AlignCenter)
         
         # Main layout just contains the scroll area
@@ -615,30 +661,29 @@ class WelcomeScreen(QWidget):
         logo_label = QLabel()
         logo_pixmap = QPixmap("logo.png")
         if not logo_pixmap.isNull():
-            logo_pixmap = logo_pixmap.scaledToWidth(300, Qt.SmoothTransformation)
+            logo_pixmap = logo_pixmap.scaledToWidth(200, Qt.SmoothTransformation)
             logo_label.setPixmap(logo_pixmap)
             logo_label.setAlignment(Qt.AlignCenter)
             content_layout.addWidget(logo_label)
-            content_layout.addSpacing(20)
+            content_layout.addSpacing(10)
         
         # Logo or title with modern styling
         title = QLabel("Anki Generator")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
-            font-size: 36px;
+            font-size: 28px;
             font-weight: bold;
             color: #1976d2;
-            margin-bottom: 10px;
-            /* Remove text-shadow as it's causing warnings */
+            margin-bottom: 5px;
         """)
         
         # Subtitle with modern styling
         subtitle = QLabel("AI-Powered Flashcard Creation")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setStyleSheet("""
-            font-size: 18px;
+            font-size: 16px;
             color: #42a5f5;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         """)
         
         # Description
@@ -646,22 +691,22 @@ class WelcomeScreen(QWidget):
         description.setAlignment(Qt.AlignCenter)
         description.setWordWrap(True)
         description.setStyleSheet("""
-            font-size: 16px;
+            font-size: 14px;
             color: #616161;
-            margin-bottom: 40px;
-            max-width: 600px;
+            margin-bottom: 20px;
+            max-width: 500px;
         """)
         
         # API Keys section with attractive styling
         api_card = QFrame()
         api_card.setObjectName("ApiKeyCard")
-        api_card.setMinimumWidth(300)  # Set minimum width
-        api_card.setMaximumWidth(600)  # Add maximum width to prevent it from taking the full screen
+        api_card.setMinimumWidth(250)  # Set minimum width
+        api_card.setMaximumWidth(450)  # Add maximum width to prevent it from taking the full screen
         api_card.setStyleSheet("""
             #ApiKeyCard {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                            stop:0 #f5f7fa, stop:1 #e4e8ec);
-                border-radius: 20px;
+                border-radius: 15px;
                 border: 1px solid rgba(200, 210, 230, 0.7);
             }
         """)
@@ -674,27 +719,25 @@ class WelcomeScreen(QWidget):
         api_card.setGraphicsEffect(shadow)
         
         api_layout = QVBoxLayout(api_card)
-        api_layout.setContentsMargins(30, 30, 30, 30)
-        api_layout.setSpacing(20)
+        api_layout.setContentsMargins(20, 20, 20, 20)
+        api_layout.setSpacing(10)
         
         # API Keys header with icon
         api_header_layout = QHBoxLayout()
         api_title = QLabel("API Keys Setup")
         api_title.setStyleSheet("""
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #1976d2;
         """)
         
         # Icon for the header
         key_icon_label = QLabel()
-        key_icon_label.setFixedSize(32, 32)
-        # If you have an actual icon file, use this:
-        # key_icon_label.setPixmap(QPixmap("icon/key.png").scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        key_icon_label.setFixedSize(24, 24)
         key_icon_label.setStyleSheet("""
             background-color: #1976d2;
-            border-radius: 16px;
-            padding: 5px;
+            border-radius: 12px;
+            padding: 4px;
         """)
         
         api_header_layout.addWidget(key_icon_label)
@@ -706,17 +749,17 @@ class WelcomeScreen(QWidget):
         api_description = QLabel("Configure your API credentials to power the AI features.")
         api_description.setWordWrap(True)
         api_description.setStyleSheet("""
-            font-size: 14px;
+            font-size: 12px;
             color: #616161;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         """)
         api_layout.addWidget(api_description)
         
         # Groq API Key (required) with modern styling
         groq_container = QFrame()
         groq_container.setObjectName("GroqContainer")
-        groq_container.setMinimumWidth(280)
-        groq_container.setMaximumHeight(160)  # Add maximum height
+        groq_container.setMinimumWidth(230)
+        groq_container.setMaximumHeight(140)  # Add maximum height
         groq_container.setStyleSheet("""
             #GroqContainer {
                 background-color: white;
@@ -731,13 +774,13 @@ class WelcomeScreen(QWidget):
         """)
         
         groq_layout = QVBoxLayout(groq_container)
-        groq_layout.setContentsMargins(15, 12, 15, 12)  # Reduced vertical margins from 15 to 12
-        groq_layout.setSpacing(6)  # Reduced from 8
+        groq_layout.setContentsMargins(10, 8, 10, 8)  # Reduced vertical margins from 15 to 12
+        groq_layout.setSpacing(4)  # Reduced from 8
         
         groq_header = QHBoxLayout()
         groq_label = QLabel("Groq API Key")
         groq_label.setStyleSheet("""
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             color: #1565c0;
         """)
@@ -760,9 +803,9 @@ class WelcomeScreen(QWidget):
         groq_help = QLabel("Get your API key at: <a href='https://console.groq.com/keys' style='color: #1976d2;'>console.groq.com/keys</a>")
         groq_help.setOpenExternalLinks(True)
         groq_help.setStyleSheet("""
-            font-size: 12px;
+            font-size: 11px;
             color: #757575;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         """)
         
         self.groq_input = QLineEdit()
@@ -796,8 +839,8 @@ class WelcomeScreen(QWidget):
         # Cloudflare section with modern styling
         cf_container = QFrame()
         cf_container.setObjectName("CFContainer")
-        cf_container.setMinimumWidth(280)
-        cf_container.setMaximumHeight(220)  # Add maximum height
+        cf_container.setMinimumWidth(230)
+        cf_container.setMaximumHeight(180)  # Add maximum height
         cf_container.setStyleSheet("""
             #CFContainer {
                 background-color: white;
@@ -812,13 +855,13 @@ class WelcomeScreen(QWidget):
         """)
         
         cf_layout = QVBoxLayout(cf_container)
-        cf_layout.setContentsMargins(15, 12, 15, 12)  # Reduced vertical margins
-        cf_layout.setSpacing(6)  # Reduced spacing
+        cf_layout.setContentsMargins(10, 8, 10, 8)  # Reduced vertical margins
+        cf_layout.setSpacing(4)  # Reduced spacing
         
         cf_header = QHBoxLayout()
         cf_label = QLabel("Cloudflare Credentials")
         cf_label.setStyleSheet("""
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             color: #1565c0;
         """)
@@ -842,15 +885,15 @@ class WelcomeScreen(QWidget):
         cf_description.setOpenExternalLinks(True)
         cf_description.setWordWrap(True)
         cf_description.setStyleSheet("""
-            font-size: 12px;
+            font-size: 11px;
             color: #757575;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         """)
         
         # Account ID input
         cf_account_label = QLabel("Cloudflare Account ID:")
         cf_account_label.setStyleSheet("""
-            font-size: 14px;
+            font-size: 12px;
             color: #424242;
         """)
         
@@ -880,9 +923,9 @@ class WelcomeScreen(QWidget):
         # API Token input
         cf_token_label = QLabel("Cloudflare API Token:")
         cf_token_label.setStyleSheet("""
-            font-size: 14px;
+            font-size: 12px;
             color: #424242;
-            margin-top: 5px;
+            margin-top: 3px;
         """)
         
         self.cf_token_input = QLineEdit()
@@ -923,18 +966,18 @@ class WelcomeScreen(QWidget):
         # Get started button with enhanced styling
         get_started_btn = QPushButton("Get Started")
         get_started_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        get_started_btn.setMinimumHeight(50)
-        get_started_btn.setMinimumWidth(200)
+        get_started_btn.setMinimumHeight(40)
+        get_started_btn.setMinimumWidth(150)
         get_started_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                                            stop:0 #1976d2, stop:1 #42a5f5);
                 color: white;
                 border: none;
-                border-radius: 25px;
-                font-size: 16px;
+                border-radius: 20px;
+                font-size: 14px;
                 font-weight: bold;
-                padding: 10px 20px;
+                padding: 8px 16px;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
@@ -952,7 +995,7 @@ class WelcomeScreen(QWidget):
         button_layout = QHBoxLayout(button_container)
         button_layout.setAlignment(Qt.AlignCenter)
         button_layout.addWidget(get_started_btn)
-        button_layout.setContentsMargins(0, 30, 0, 0)
+        button_layout.setContentsMargins(0, 15, 0, 0)
         
         # Add components to content_layout instead of layout
         content_layout.addWidget(title)
@@ -980,6 +1023,13 @@ class WelcomeScreen(QWidget):
         if credentials['cf_account_id'] and credentials['cf_api_token']:
             os.environ["CLOUDFLARE_ACCOUNT_ID"] = credentials['cf_account_id']
             os.environ["CLOUDFLARE_API_TOKEN"] = credentials['cf_api_token']
+            
+            # Update the checkbox state
+            for checkbox in parent.findChildren(QCheckBox):
+                if checkbox.text() == "Generate images for cards":
+                    checkbox.setEnabled(True)
+                    checkbox.setToolTip("Generate images for each vocabulary word")
+                    parent.console.append_message("Image generation enabled", "info")
         
         # Switch to the main interface
         parent.stacked_widget.setCurrentIndex(1)
@@ -1163,10 +1213,14 @@ class AnkiGeneratorApp(QMainWindow):
         language_layout.addWidget(self.language_combo, 1)
         language_layout.addStretch()
         
-        # Image generation checkbox
+        # Generate images checkbox
         self.generate_images_checkbox = QCheckBox("Generate images for cards")
         self.generate_images_checkbox.setChecked(False)
-        if not os.environ.get("CLOUDFLARE_ACCOUNT_ID") or not os.environ.get("CLOUDFLARE_API_TOKEN"):
+        # Enable checkbox if Cloudflare credentials are available
+        if os.environ.get("CLOUDFLARE_ACCOUNT_ID") and os.environ.get("CLOUDFLARE_API_TOKEN"):
+            self.generate_images_checkbox.setEnabled(True)
+            self.generate_images_checkbox.setToolTip("Generate images for each vocabulary word")
+        else:
             self.generate_images_checkbox.setEnabled(False)
             self.generate_images_checkbox.setToolTip("Cloudflare credentials are required for image generation")
         
@@ -1299,6 +1353,8 @@ class AnkiGeneratorApp(QMainWindow):
         # Handle integer values from progress_signal
         if isinstance(message, int):
             self.console.append_message(f"Progress: {message}%", "info")
+            # Force immediate UI update
+            QApplication.processEvents()
             return
         
         # Handle string messages
@@ -1310,6 +1366,12 @@ class AnkiGeneratorApp(QMainWindow):
             self.console.append_message(message, "warning")
         else:
             self.console.append_message(message)
+        
+        # Force immediate UI update after each message
+        QApplication.processEvents()
+        
+        # Ensure the latest message is visible by scrolling to the bottom
+        self.console.verticalScrollBar().setValue(self.console.verticalScrollBar().maximum())
     
     def process_finished(self, success, message):
         # Re-enable generate button

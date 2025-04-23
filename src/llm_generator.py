@@ -64,7 +64,7 @@ German sentence: <sentence>
 English translation: <translation>
 Conjugation: <er form präsens>, <er form perfekt>, <er form präteritum>
 Case: <Akkusativ/Dativ/Both>
-Related words: <list of 3-5 related German words with English translations in parentheses>
+Related words: <list of 5 related German words with English translations in parentheses>
 Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
@@ -86,7 +86,7 @@ Plural form: <plural>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
 English translation: <translation>
-Related words: <list of 3-5 related German words with English translations in parentheses>
+Related words: <list of 5 related German words with English translations in parentheses>
 Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
@@ -97,13 +97,13 @@ Word type: <adjective/adverb/preposition/etc.>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
 English translation: <translation>
-Related words: <list of 3-5 related German words, each with its English translation in parentheses, e.g., "Buchstabe (letter), Buchstabieren (to spell)">
+Related words: <list of 5 related German words, each with its English translation in parentheses, e.g., "Buchstabe (letter), Buchstabieren (to spell)">
 Additional info: <any relevant grammar information or usage nuances>
 
 Keep responses concise and grammatically correct."""
             
             response = client.chat.completions.create(
-                model="meta-llama/llama-4-maverick-17b-128e-instruct",  # meta-llama/llama-4-maverick-17b-128e-instruct
+                model="deepseek-r1-distill-llama-70b",  # meta-llama/llama-4-maverick-17b-128e-instruct
                 messages=[
                     {
                         "role": "system",
@@ -117,6 +117,13 @@ Keep responses concise and grammatically correct."""
                 temperature=0.3,
                 max_tokens=500,
             )
+            
+            # Debug: Print the full LLM response if debug mode is enabled
+            if hasattr(config, 'DEBUG') and config.DEBUG:
+                print("\n=== DEBUG: FULL LLM RESPONSE ===")
+                print(f"Word: {word}")
+                print(response.choices[0].message.content)
+                print("=== END DEBUG OUTPUT ===\n")
             
             # Process the response
             result = process_groq_response(word, response.choices[0].message.content)

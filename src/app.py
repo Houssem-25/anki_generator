@@ -79,6 +79,12 @@ class AnkiGeneratorApp:
             default=True,
             help="Shuffle the input words (default: True)"
         )
+        parser.add_argument(
+            "--debug",
+            action="store_true",
+            default=False,
+            help="Enable debug mode to print full LLM output"
+        )
         self.args = parser.parse_args()
 
     def setup(self, input_words=None):

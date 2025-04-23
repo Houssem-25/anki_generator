@@ -49,9 +49,17 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
 CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN")
 
+# --- Debug Settings ---
+DEBUG = False
+
 def setup_config(args):
     """Updates configuration based on parsed command-line arguments."""
-    global ANKI_MEDIA_DIR # We need to modify the global variable
+    global ANKI_MEDIA_DIR, DEBUG # We need to modify the global variables
+
+    # Set DEBUG mode based on command-line argument
+    if hasattr(args, 'debug') and args.debug:
+        DEBUG = True
+        print("\n--- Debug mode enabled. Full LLM responses will be printed. ---")
 
     # Set the global ANKI_MEDIA_DIR in the config module if the argument is provided
     if args.anki_media_path:

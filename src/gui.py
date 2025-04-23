@@ -8,7 +8,7 @@ import time
 from typing import List, Optional, Dict, Any, Tuple
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QLineEdit, QPushButton, QFileDialog, QComboBox, 
-                            QProgressBar, QTextEdit, QFrame, QSplitter, QStackedWidget,
+                            QTextEdit, QFrame, QSplitter, QStackedWidget,
                             QScrollArea, QGridLayout, QToolButton, QSpacerItem, QSizePolicy,
                             QTabWidget, QGraphicsDropShadowEffect, QMessageBox, QDialog, QCheckBox, QShortcut, QStackedLayout)
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtSignal, QTimer, QRect, QThread, QPoint, pyqtProperty
@@ -532,53 +532,6 @@ class StylizedComboBox(QComboBox):
                 selection-color: #424242;
             }
         """)
-
-class AnimatedProgressBar(QProgressBar):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(10)
-        self.setTextVisible(False)
-        self.setValue(0)
-        
-        # Animated progress bar with gradient
-        self.setStyleSheet("""
-            QProgressBar {
-                border: none;
-                border-radius: 5px;
-                background-color: #e0e0e0;
-            }
-            QProgressBar::chunk {
-                border-radius: 5px;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                                            stop:0 #2196f3, stop:1 #03a9f4);
-            }
-        """)
-        
-        # Pulse animation when indeterminate
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._pulse_animation)
-        
-        # Optional shimmer effect
-        self._shimmer_offset = 0
-        self._shimmer_timer = QTimer(self)
-        self._shimmer_timer.timeout.connect(self._update_shimmer)
-        self._shimmer_timer.start(50)  # Update shimmer every 50ms
-        
-    def _pulse_animation(self):
-        if self.value() >= 100:
-            self.setValue(0)
-        else:
-            self.setValue(self.value() + 5)
-            
-    def _update_shimmer(self):
-        self._shimmer_offset = (self._shimmer_offset + 5) % 100
-        self.update()
-        
-    def startPulse(self):
-        self._timer.start(100)
-        
-    def stopPulse(self):
-        self._timer.stop()
 
 class GlassCard(QFrame):
     def __init__(self, parent=None):
@@ -1308,10 +1261,6 @@ class AnkiGeneratorApp(QMainWindow):
         output_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1976d2;")
         output_layout.addWidget(output_title)
         
-        # Progress bar
-        self.progress_bar = AnimatedProgressBar()
-        output_layout.addWidget(self.progress_bar)
-        
         # Console output
         console_label = QLabel("Console Output:")
         console_label.setStyleSheet("font-weight: bold;")
@@ -1401,11 +1350,10 @@ class AnkiGeneratorApp(QMainWindow):
         
         # Clear previous output
         self.console.clear()
-        self.progress_bar.setValue(0)
         
         # Start worker thread
         self.worker_thread = WorkerThread(input_text, output_file, language, generate_images)
-        self.worker_thread.progress_signal.connect(self.update_progress)
+        self.worker_thread.progress_signal.connect(self.update_console)
         self.worker_thread.console_signal.connect(self.update_console)
         self.worker_thread.finished_signal.connect(self.process_finished)
         self.worker_thread.word_processed_signal.connect(self.update_card_preview)
@@ -1418,13 +1366,6 @@ class AnkiGeneratorApp(QMainWindow):
         
         # Show sample preview (to be replaced with actual data)
         self.update_card_preview_sample()
-    
-    def update_progress(self, value):
-        self.progress_bar.setValue(value)
-        # Force an immediate repaint of the progress bar
-        self.progress_bar.repaint()
-        # Process pending UI events to ensure progress bar is updated visually
-        QApplication.processEvents()
     
     def update_console(self, message):
         if "error" in message.lower():

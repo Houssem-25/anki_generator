@@ -115,7 +115,6 @@ class WorkerThread(QThread):
     progress_signal = pyqtSignal(int)
     console_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
-    word_processed_signal = pyqtSignal(dict)
     
     def __init__(self, input_text: str, output_file: str, target_language: str, generate_images: bool = False):
         super().__init__()
@@ -272,14 +271,6 @@ sys.exit(result.returncode)
                                         self.progress_signal.emit(progress)
                                         # Force UI update
                                         self.console_signal.emit(f"Progress: {progress}% - Processing: {word}")
-                                    
-                                    # Create a minimal preview update
-                                    self.word_processed_signal.emit({
-                                        "word": word,
-                                        "definition": "Processing...",
-                                        "example": "",
-                                        "translation": ""
-                                    })
                             except Exception as e:
                                 self.console_signal.emit(f"WARNING: Error tracking progress: {str(e)}")
                         
@@ -358,12 +349,7 @@ sys.exit(result.returncode)
                             if first_line:
                                 parts = first_line.split('\t')
                                 if len(parts) >= 4:
-                                    self.word_processed_signal.emit({
-                                        "word": parts[0],
-                                        "definition": parts[1],
-                                        "example": parts[2],
-                                        "translation": parts[3]
-                                    })
+                                    self.console_signal.emit(f"Sample result: {parts[0]} - {parts[1][:50]}...")
                 except Exception as e:
                     self.console_signal.emit(f"Failed to read output file: {e}")
                 
@@ -600,49 +586,6 @@ class ConsoleOutput(QTextEdit):
         
     def clear_console(self):
         self.clear()
-
-class CardPreview(QFrame):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFrameShape(QFrame.Box)
-        self.setMinimumHeight(250)
-        self.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 10px;
-                border: 1px solid #e0e0e0;
-            }
-        """)
-        
-        # Set up layout
-        layout = QVBoxLayout(self)
-        
-        # Card header
-        header = QLabel("Card Preview")
-        header.setAlignment(Qt.AlignCenter)
-        header.setStyleSheet("font-weight: bold; font-size: 16px; color: #424242;")
-        
-        # Sample content
-        self.content = QLabel("No cards generated yet")
-        self.content.setAlignment(Qt.AlignCenter)
-        self.content.setWordWrap(True)
-        self.content.setStyleSheet("color: #757575; font-size: 14px;")
-        
-        # Add to layout
-        layout.addWidget(header)
-        layout.addWidget(self.content)
-        
-    def update_preview(self, word=None, definition=None, example=None, translation=None):
-        if word:
-            html = f"""
-            <h2 style="color: #1976d2; text-align: center;">{word}</h2>
-            <p style="color: #424242; margin-bottom: 10px;"><b>Definition:</b> {definition}</p>
-            <p style="color: #424242; font-style: italic; margin-bottom: 10px;">"{example}"</p>
-            <p style="color: #424242;"><b>Translation:</b> {translation}</p>
-            """
-            self.content.setText(html)
-        else:
-            self.content.setText("No cards generated yet")
 
 class WelcomeScreen(QWidget):
     def __init__(self, parent=None):
@@ -1269,14 +1212,6 @@ class AnkiGeneratorApp(QMainWindow):
         output_layout.addWidget(console_label)
         output_layout.addWidget(self.console)
         
-        # Card preview
-        preview_label = QLabel("Card Preview:")
-        preview_label.setStyleSheet("font-weight: bold;")
-        self.card_preview = CardPreview()
-        
-        output_layout.addWidget(preview_label)
-        output_layout.addWidget(self.card_preview)
-        
         # Set the output widget as the scroll area's widget
         right_scroll.setWidget(output_widget)
         
@@ -1321,9 +1256,6 @@ class AnkiGeneratorApp(QMainWindow):
         # Initialize with welcome screen
         self.stacked_widget.setCurrentIndex(0)
         
-        # Sample data for preview (will be removed in actual implementation)
-        self.update_card_preview_sample()
-        
     def browse_output_file(self):
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Select Output File", "", "Anki Package (*.txt);;All Files (*)"
@@ -1356,18 +1288,20 @@ class AnkiGeneratorApp(QMainWindow):
         self.worker_thread.progress_signal.connect(self.update_console)
         self.worker_thread.console_signal.connect(self.update_console)
         self.worker_thread.finished_signal.connect(self.process_finished)
-        self.worker_thread.word_processed_signal.connect(self.update_card_preview)
         self.worker_thread.start()
         
         # Disable generate button while processing
         for btn in self.findChildren(QPushButton):
             if btn.text() == "Generate Cards":
                 btn.setEnabled(False)
-        
-        # Show sample preview (to be replaced with actual data)
-        self.update_card_preview_sample()
     
     def update_console(self, message):
+        # Handle integer values from progress_signal
+        if isinstance(message, int):
+            self.console.append_message(f"Progress: {message}%", "info")
+            return
+        
+        # Handle string messages
         if "error" in message.lower():
             self.console.append_message(message, "error")
         elif "success" in message.lower():
@@ -1389,47 +1323,6 @@ class AnkiGeneratorApp(QMainWindow):
         else:
             self.console.append_message(f"Process failed: {message}", "error")
             QMessageBox.warning(self, "Error", f"Card generation failed: {message}")
-    
-    def update_card_preview(self, result):
-        # Update card preview with real processed data
-        self.card_preview.update_preview(
-            result.get("word", ""),
-            result.get("definition", ""),
-            result.get("example", ""),
-            result.get("translation", "")
-        )
-    
-    def update_card_preview_sample(self):
-        # Sample data for preview - this is just for demonstration
-        examples = [
-            {
-                "word": "Serendipity",
-                "definition": "The occurrence and development of events by chance in a happy or beneficial way.",
-                "example": "The discovery of penicillin was a serendipity, a happy accident.",
-                "translation": "المصادفة السعيدة"
-            },
-            {
-                "word": "Ephemeral",
-                "definition": "Lasting for a very short time.",
-                "example": "The ephemeral beauty of spring flowers.",
-                "translation": "قصير الأمد"
-            },
-            {
-                "word": "Ubiquitous",
-                "definition": "Present, appearing, or found everywhere.",
-                "example": "Smartphones are now ubiquitous in modern society.",
-                "translation": "منتشر في كل مكان"
-            }
-        ]
-        
-        # Pick a random example
-        example = random.choice(examples)
-        self.card_preview.update_preview(
-            example["word"], 
-            example["definition"], 
-            example["example"], 
-            example["translation"]
-        )
 
     def toggle_window_state(self):
         """Toggle between maximized and normal window mode"""

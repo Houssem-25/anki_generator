@@ -103,7 +103,7 @@ Additional info: <any relevant grammar information or usage nuances>
 Keep responses concise and grammatically correct."""
             
             response = client.chat.completions.create(
-                model="deepseek-r1-distill-llama-70b",  # meta-llama/llama-4-maverick-17b-128e-instruct
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",  # meta-llama/llama-4-maverick-17b-128e-instruct
                 messages=[
                     {
                         "role": "system",

@@ -1,9 +1,4 @@
-<table>
-  <tr>
-    <td><h1>Anki Card Generator</h1></td>
-    <td align="right"><img src="logo.png" width="200"></td>
-  </tr>
-</table>
+# Anki Card Generator <img src="logo.png" width="200" align="right" />
 
 ## Description
 Anki Card Generator uses advanced Large Language Models (LLMs) to turn your input into effective, memory-boosting Anki flashcards. It automatically creates translations, grammar tips, vocabulary trees, relevant images, and audio helping you learn faster, retain more, and make study sessions more engaging.

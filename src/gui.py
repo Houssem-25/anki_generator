@@ -298,6 +298,16 @@ class ApiSetupPage(QWidget):
         main_layout.addWidget(scroll_area)
         scroll_area.setWidget(content_widget)
         
+        # Add logo
+        logo_label = QLabel()
+        logo_pixmap = QPixmap("logo.png")
+        if not logo_pixmap.isNull():
+            logo_pixmap = logo_pixmap.scaledToWidth(200, Qt.SmoothTransformation)
+            logo_label.setPixmap(logo_pixmap)
+            logo_label.setAlignment(Qt.AlignCenter)
+            content_layout.addWidget(logo_label)
+            content_layout.addSpacing(10)
+        
         # Title
         title = QLabel("Anki Generator")
         title.setAlignment(Qt.AlignCenter)
@@ -584,6 +594,24 @@ class GenerationPage(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
+        # Logo as a floating widget above the content
+        logo_label = QLabel(self)
+        logo_pixmap = QPixmap("logo.png")
+        if not logo_pixmap.isNull():
+            logo_pixmap = logo_pixmap.scaledToWidth(120, Qt.SmoothTransformation)
+            logo_label.setPixmap(logo_pixmap)
+            logo_label.setStyleSheet("background: transparent; padding: 0; margin: 0; border: none;")
+            logo_label.setAttribute(Qt.WA_TransparentForMouseEvents)  # Let clicks pass through
+            
+            # Initial position
+            logo_label.move(20, 20)  # Set a fixed position with margin instead of 0,0
+            
+            # Make sure the logo stays on top
+            logo_label.raise_()
+            
+            # Store the logo label for later access in resize events
+            self.generator_logo = logo_label
+        
         # Title
         title = QLabel("Card Generator")
         title.setStyleSheet("""
@@ -726,6 +754,18 @@ class GenerationPage(QWidget):
         output_layout.addWidget(self.console)
         
         layout.addWidget(output_card)
+        
+        # Define resize event to position logo properly
+        original_resize = self.resizeEvent
+        def custom_resize_event(event):
+            if hasattr(self, 'generator_logo') and hasattr(self.generator_logo, 'pixmap') and not self.generator_logo.pixmap().isNull():
+                # Position the logo at the top right with a margin
+                self.generator_logo.move(self.width() - self.generator_logo.pixmap().width() - 20, 20)
+            # Call original resize event 
+            if original_resize:
+                original_resize(event)
+        
+        self.resizeEvent = custom_resize_event
     
     def browse_output_file(self):
         """Browse for output file."""
@@ -817,6 +857,11 @@ class AnkiGeneratorGUI(QMainWindow):
         self.setWindowTitle("Anki Generator")
         self.setMinimumSize(1000, 700)
         self.resize(1200, 800)
+        
+        # Set window icon
+        app_icon = QIcon("logo.png")
+        if not app_icon.isNull():
+            self.setWindowIcon(app_icon)
         
         # Initialize UI
         self.init_ui()

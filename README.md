@@ -1,6 +1,8 @@
 # # Anki Card Generator
 
-![Logo](logo.png)
+<p align="center">
+  <img src="logo.png" width="200">
+</p>
 
 ## Description
 

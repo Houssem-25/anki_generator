@@ -79,13 +79,19 @@ class GroqLLMService(LLMService):
             # Apply rate limiting
             self.rate_limiter.consume(1, block=True)
             
-            # Generate content
-            response = self._generate_content(word, target_language)
+            # Always generate content in English first
+            response = self._generate_content(word)
             if not response:
                 return None
             
-            # Parse response
-            return self._parse_response(word, response)
+            # Parse English response
+            english_word_data = self._parse_response(word, response)
+            
+            # If target language is not English, translate the content
+            if target_language.lower() != "english":
+                english_word_data = self._translate_word_data(english_word_data, target_language)
+            
+            return english_word_data
             
         except Exception as e:
             print(f"Error processing word '{word}': {e}")
@@ -105,11 +111,11 @@ class GroqLLMService(LLMService):
         
         return results
     
-    def _generate_content(self, word: str, target_language: str) -> Optional[str]:
+    def _generate_content(self, word: str) -> Optional[str]:
         """Generate content using Groq API."""
         try:
-            # Determine word type and create appropriate prompt
-            system_content = self._create_system_prompt(word, target_language)
+            # Determine word type and create appropriate prompt (always in English)
+            system_content = self._create_system_prompt(word)
             
             response = self.client.chat.completions.create(
                 model="meta-llama/llama-4-maverick-17b-128e-instruct",
@@ -127,7 +133,7 @@ class GroqLLMService(LLMService):
             print(f"Error generating content for '{word}': {e}")
             return None
     
-    def _create_system_prompt(self, word: str, target_language: str) -> str:
+    def _create_system_prompt(self, word: str) -> str:
         """Create appropriate system prompt based on word characteristics."""
         # Check if the word might be a verb
         is_potential_verb = word.lower().endswith(('en', 'n', 'rn', 'ln')) and len(word) > 2
@@ -138,47 +144,47 @@ class GroqLLMService(LLMService):
         )
         
         if is_potential_verb:
-            return self._create_verb_prompt(target_language)
+            return self._create_verb_prompt()
         elif is_potential_noun:
-            return self._create_noun_prompt(target_language)
+            return self._create_noun_prompt()
         else:
-            return self._create_general_prompt(target_language)
+            return self._create_general_prompt()
     
-    def _create_verb_prompt(self, target_language: str) -> str:
+    def _create_verb_prompt(self) -> str:
         """Create prompt for verb processing."""
-        return f"""You are a German language expert assistant. For the German verb provided, generate:
-1. A detailed {target_language} translation of the verb (1-2 phrases maximum explaining the meaning more precisely)
+        return """You are a German language expert assistant. For the German verb provided, generate:
+1. A detailed English translation of the verb (1-2 phrases maximum explaining the meaning more precisely)
 2. An example German sentence using the verb.
 3. Ensure the verb is used in its proper form—respecting whether it is trennbar (separable) or nicht trennbar (inseparable)—within the sentence.
-4. An accurate {target_language} translation of that sentence
+4. An accurate English translation of that sentence
 5. The 3rd person singular (er/sie/es) conjugation for Präsens, Perfekt (including auxiliary verb), and Präteritum, separated by commas. Example: er geht, er ist gegangen, er ging
 6. Whether the verb requires accusative, dative, or both cases
 7. The word type (verb) and any subtypes (regular, separable, reflexive, etc.)
-8. Related German words (3-5 words maximum) with their {target_language} translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
+8. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "kaufen (to buy), Verkauf (sale), einkaufen (to shop)"
 9. Any additional relevant information about usage, nuances, or special considerations
 
 Format your response exactly like this:
 Word type: verb, [subtype if applicable]
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
-{target_language.capitalize()} translation: <translation>
+English translation: <translation>
 Conjugation: <er form präsens>, <er form perfekt>, <er form präteritum>
 Case: <Akkusativ/Dativ/Both>
-Related words: <list of 5 related German words with {target_language} translations in parentheses>
+Related words: <list of 5 related German words with English translations in parentheses>
 Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
     
-    def _create_noun_prompt(self, target_language: str) -> str:
+    def _create_noun_prompt(self) -> str:
         """Create prompt for noun processing."""
-        return f"""You are a German language expert assistant. For the German noun provided, generate:
-1. A detailed {target_language} translation of the noun (1-2 phrases maximum explaining the meaning more precisely)
+        return """You are a German language expert assistant. For the German noun provided, generate:
+1. A detailed English translation of the noun (1-2 phrases maximum explaining the meaning more precisely)
 2. An example German sentence using the noun
-3. An accurate {target_language} translation of that sentence
+3. An accurate English translation of that sentence
 4. The gender of the noun (masculine, feminine, neuter)
 5. The plural form of the noun
 6. The word type (noun)
-7. Related German words (3-5 words maximum) with their {target_language} translations in parentheses, e.g., "Buch (book), Buchhandlung (bookstore), Bücherei (library)"
+7. Related German words (3-5 words maximum) with their English translations in parentheses, e.g., "Buch (book), Buchhandlung (bookstore), Bücherei (library)"
 8. Any additional relevant information about usage, nuances, or special considerations
 
 Format your response exactly like this:
@@ -187,21 +193,21 @@ Gender: <masculine/feminine/neuter>
 Plural form: <plural>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
-{target_language.capitalize()} translation: <translation>
-Related words: <list of 5 related German words with {target_language} translations in parentheses>
+English translation: <translation>
+Related words: <list of 5 related German words with English translations in parentheses>
 Additional info: <any relevant usage information or nuances>
 
 Keep responses concise and grammatically correct."""
     
-    def _create_general_prompt(self, target_language: str) -> str:
+    def _create_general_prompt(self) -> str:
         """Create prompt for general word processing."""
-        return f"""You are a German language expert AI that efficiently analyzes and provides key information about German words. For each given German word, analyze and return the following information in this exact format:
+        return """You are a German language expert AI that efficiently analyzes and provides key information about German words. For each given German word, analyze and return the following information in this exact format:
 
 Word type: <adjective/adverb/preposition/etc.>
 Word translation: <detailed translation with 1-2 phrases maximum>
 German sentence: <sentence>
-{target_language.capitalize()} translation: <translation>
-Related words: <list of 5 related German words, each with its {target_language} translation in parentheses, e.g., "Buchstabe (letter), Buchstabieren (to spell)">
+English translation: <translation>
+Related words: <list of 5 related German words, each with its English translation in parentheses, e.g., "Buchstabe (letter), Buchstabieren (to spell)">
 Additional info: <any relevant grammar information or usage nuances>
 
 Keep responses concise and grammatically correct."""
@@ -282,6 +288,90 @@ Keep responses concise and grammatically correct."""
             return Gender.NEUTER
         else:
             return None
+
+    def _translate_word_data(self, english_word_data: WordData, target_language: str) -> WordData:
+        """Translate English WordData to target language."""
+        try:
+            # Apply rate limiting for translation
+            self.rate_limiter.consume(1, block=True)
+            
+            # Create translation prompt with all English content
+            translation_prompt = self._create_translation_prompt(english_word_data, target_language)
+            
+            # Get translation from LLM
+            response = self.client.chat.completions.create(
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",
+                messages=[
+                    {"role": "system", "content": translation_prompt},
+                    {"role": "user", "content": f"Translate the following English content to {target_language}:"}
+                ],
+                temperature=0.3,
+                max_tokens=600,
+            )
+            
+            translated_content = response.choices[0].message.content
+            
+            # Parse the translated content and update the WordData
+            return self._parse_translated_response(english_word_data, translated_content, target_language)
+            
+        except Exception as e:
+            print(f"Error translating word data: {e}")
+            # Return original English data if translation fails
+            return english_word_data
+
+    def _create_translation_prompt(self, word_data: WordData, target_language: str) -> str:
+        """Create prompt for translating WordData content."""
+        return f"""You are a professional translator. Translate the following English content to {target_language}. 
+Keep the original German word unchanged and translate only the English text.
+
+Original German word: {word_data.word}
+
+English content to translate:
+- Word translation: {word_data.word_translation}
+- English translation: {word_data.translation}
+- Related words: {word_data.related_words}
+- Additional info: {word_data.additional_info}
+
+Translate the content and format your response exactly like this:
+Word translation: <translated word translation>
+English translation: <translated sentence translation>
+Related words: <translated related words with {target_language} translations in parentheses>
+Additional info: <translated additional info>
+
+Keep the same structure and meaning, but translate to {target_language}."""
+
+    def _parse_translated_response(self, original_word_data: WordData, translated_content: str, target_language: str) -> WordData:
+        """Parse translated content and update WordData."""
+        # Create a copy of the original data
+        translated_word_data = WordData(
+            word=original_word_data.word,  # Keep original German word
+            word_translation=original_word_data.word_translation,
+            phrase=original_word_data.phrase,  # Keep original German sentence
+            translation=original_word_data.translation,
+            word_type=original_word_data.word_type,
+            conjugation=original_word_data.conjugation,
+            case_info=original_word_data.case_info,
+            gender=original_word_data.gender,
+            plural=original_word_data.plural,
+            additional_info=original_word_data.additional_info,
+            related_words=original_word_data.related_words
+        )
+        
+        # Parse translated content
+        lines = translated_content.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith("Word translation:"):
+                translated_word_data.word_translation = line.replace("Word translation:", "").strip()
+            elif line.startswith("English translation:"):
+                translated_word_data.translation = line.replace("English translation:", "").strip()
+            elif line.startswith("Related words:"):
+                translated_word_data.related_words = line.replace("Related words:", "").strip()
+            elif line.startswith("Additional info:"):
+                translated_word_data.additional_info = line.replace("Additional info:", "").strip()
+        
+        return translated_word_data
 
 
 def create_llm_service(api_key: str) -> LLMService:

@@ -53,6 +53,7 @@ class WordData:
     plural: str = ""
     additional_info: str = ""
     related_words: str = ""
+    english_translation: str = ""  # Store original English translation for image generation
     
     def __post_init__(self):
         if isinstance(self.word_type, str):

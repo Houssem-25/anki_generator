@@ -354,7 +354,8 @@ Keep the same structure and meaning, but translate to {target_language}."""
             gender=original_word_data.gender,
             plural=original_word_data.plural,
             additional_info=original_word_data.additional_info,
-            related_words=original_word_data.related_words
+            related_words=original_word_data.related_words,
+            english_translation=original_word_data.word_translation  # Store original English translation
         )
         
         # Parse translated content

@@ -157,8 +157,16 @@ class AnkiCardProcessor:
     def _generate_image(self, word: str, word_data: WordData) -> Optional[MediaFile]:
         """Generate image for the word."""
         try:
-            # Use word translation for image prompt
-            prompt = word_data.word_translation or word
+            # Always use English for image prompt to get better quality images
+            # Use the stored English translation if available, otherwise fall back to the word
+            if word_data.english_translation:
+                prompt = word_data.english_translation
+            elif word_data.word_translation and all(ord(char) <= 127 for char in word_data.word_translation):
+                # If word_translation is in English (only Latin characters), use it
+                prompt = word_data.word_translation
+            else:
+                # Fall back to the German word
+                prompt = word
             
             image_file = self.image_service.generate_image(
                 prompt=prompt,
@@ -173,17 +181,23 @@ class AnkiCardProcessor:
     def _create_card(self, word_data: WordData, audio_file: Optional[MediaFile], 
                     image_file: Optional[MediaFile]) -> Card:
         """Create an Anki card from word data and media files."""
-        # Create front side (English)
-        front = word_data.word_translation
-        if word_data.translation:
-            front += f"<br><br>{word_data.translation}"
+        # Create front side (English with image)
+        front_parts = []
         
-        # Create back side (German with media)
-        back_parts = []
-        
-        # Add image if available
+        # Add image if available (at the top of front)
         if image_file:
-            back_parts.append(self.image_service.create_image_tag(image_file.filename))
+            front_parts.append(self.image_service.create_image_tag(image_file.filename))
+        
+        # Add English translation
+        front_parts.append(word_data.word_translation)
+        if word_data.translation:
+            front_parts.append(word_data.translation)
+        
+        # Join front parts
+        front = "<br><br><br>".join(front_parts)
+        
+        # Create back side (German with audio)
+        back_parts = []
         
         # Add German word with grammar info
         german_word = self._format_german_word(word_data)

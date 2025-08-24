@@ -4,7 +4,7 @@
 
 ## Description
 
-Anki Card Generator is a powerful tool that leverages Large Language Models (LLMs) to automatically create Anki flashcards from your input data. It can generate not only translations, grammar, and vocabulary tree but also, create relevant images, and even add audio to your cards, making your study sessions more effective and engaging.
+Anki Card Generator uses advanced Large Language Models (LLMs) to turn your input into effective, memory-boosting Anki flashcards. It automatically creates translations, grammar tips, vocabulary trees, relevant images, and audio helping you learn faster, retain more, and make study sessions more engaging.
 
 ## Features
 
